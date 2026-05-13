@@ -67,6 +67,28 @@ export class ApplicationsService {
     return { message: 'Production mode updated successfully' };
   }
 
+  async getAppCredentials(params, user) {
+    const application = await this.applicationsRepository.getAllAppInfo({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    if (!application.credential) {
+      throw new NotFoundException(ERROR_KEYS.CREDENTIAL_NOT_FOUND);
+    }
+
+    return {
+      id: application.credential.id,
+      appKey: application.credential.appKey,
+      isProductionEnabled: application.credential.isProductionEnabled,
+      applicationId: application.credential.applicationId,
+    };
+  }
+
   async createApp(data, user) {
     const duplicatedApp = await this.applicationsRepository.getAppByNameForUser(
       {

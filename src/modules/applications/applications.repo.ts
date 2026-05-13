@@ -327,7 +327,15 @@ export class ApplicationsRepository {
       .findOne({
         where: { id: applicationId },
 
-        include: [{ model: Credentials, as: 'credential' }],
+        include: [
+          {
+            model: Credentials,
+            as: 'credential',
+            attributes: {
+              exclude: ['deletedAt', 'updatedAt', 'id', 'applicationId'],
+            },
+          },
+        ],
       });
   }
 

@@ -55,6 +55,11 @@ export class ApplicationsController {
     return await this.appService.updateProductionMode(params, req.user);
   }
 
+  @Get('/:id/credentials')
+  async getAppCredentials(@Param() params: any, @Req() req: any) {
+    return await this.appService.getAppCredentials(params, req.user);
+  }
+
   @Post('/:id/invite')
   async invitePeople(
     @Body() data: InvitePeopleDto,

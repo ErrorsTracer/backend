@@ -83,6 +83,17 @@ describe('Applications API (e2e)', () => {
       .expect(200);
 
     await request(context.httpServer)
+      .get(`/v0.1/applications/${application.id}/credentials`)
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          appKey: application.appKey,
+          isProductionEnabled: false,
+        });
+      });
+
+    await request(context.httpServer)
       .get(`/v0.1/applications/${application.id}/memberships`)
       .set(authHeader(owner.accessToken))
       .expect(200)
