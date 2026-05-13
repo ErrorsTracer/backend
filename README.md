@@ -531,12 +531,11 @@ ErrorTracer is open-source software licensed under the GNU Affero General Public
 
 You are free to self-host, modify, and use the platform under the terms of the license. If you offer a modified version of ErrorTracer as a network-accessible service, you must make the corresponding source code available to users of that service.
 
-License text: [GNU AGPLv3](https://www.gnu.org/licenses/agpl-3.0)
+License: [GNU AGPLv3](https://www.gnu.org/licenses/agpl-3.0)
 
 ## Maintainers / Credits
 
 Created by the ErrorTracer project creator.
 
 Creator LinkedIn: [Elsiddig Ahmed](https://www.linkedin.com/in/dailysiddig/)
-
-No creator LinkedIn URL was found in the repository, so this placeholder is intentionally left for maintainers to fill in.
+Creator GitHub: [Elsiddig Ahmed](https://www.github.com/dailysiddig/)
