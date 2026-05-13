@@ -10,9 +10,11 @@ import * as dotenv from 'dotenv';
 import { ValidationError } from 'class-validator';
 
 import cookieParser from 'cookie-parser';
-import { LocalizedHttpExceptionFilter } from './common/filters/localized-http-exception.filter';
 import { LocalizationService } from './common/localization/localization.service';
 import { ERROR_KEYS } from './common/localization/error-keys';
+import { ApiLoggerService } from './common/logging/api-logger.service';
+import { createRequestLoggingMiddleware } from './common/logging/request-logging.middleware';
+import { ApiErrorBoundaryFilter } from './common/filters/api-error-boundary.filter';
 
 async function bootstrap() {
   // configure environment variables
@@ -21,6 +23,10 @@ async function bootstrap() {
 
   // create the app
   const app = await NestFactory.create(AppModule);
+  const apiLogger = new ApiLoggerService();
+  const localizationService = new LocalizationService();
+
+  app.use(createRequestLoggingMiddleware(apiLogger));
 
   // use cookie parser middleware
   app.use(cookieParser());
@@ -45,7 +51,7 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(
-    new LocalizedHttpExceptionFilter(new LocalizationService()),
+    new ApiErrorBoundaryFilter(localizationService, apiLogger),
   );
 
   // enable api versioning
