@@ -5,19 +5,17 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { Users } from './database/models/users.model';
-import { Organizations } from './database/models/organizations.model';
-import { OrganizationMembership } from './database/models/organization-membership.model';
 import { Applications } from './database/models/applications.model';
 import { ApplicationTypes } from './database/models/application-types.model';
 import { ApplicationMembership } from './database/models/application-membership.model';
 import { Credentials } from './database/models/credentials.model';
-import { Plans } from './database/models/plans.model';
-import { Subscriptions } from './database/models/subscription.model';
-import { Errors } from './database/models/errors.model';
 
-import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { Errors } from './database/models/errors.model';
+import { Notifications } from './database/models/notifications.model';
+
 import { RegistryModule } from './modules/registry/registry.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -31,23 +29,20 @@ import { ApplicationsModule } from './modules/applications/applications.module';
       port: Number(process.env.DB_PORT),
       models: [
         Users,
-        Organizations,
-        OrganizationMembership,
-        Applications,
         ApplicationTypes,
+        Applications,
         ApplicationMembership,
         Credentials,
-        Plans,
-        Subscriptions,
+        Notifications,
         Errors,
         RefreshTokens,
       ],
       logging: false,
       autoLoadModels: true,
-      synchronize: true,
+      synchronize: process.env.NODE_ENV === 'test' ? false : true,
     }),
     AuthModule,
-    OrganizationsModule,
+    UsersModule,
     ApplicationsModule,
     RegistryModule,
     // PlansModule,

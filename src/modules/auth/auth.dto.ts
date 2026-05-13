@@ -3,42 +3,27 @@ import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 export class CreateAccountDto {
   @IsNotEmpty()
   @IsString()
-  firstName: string;
+  declare firstName: string;
 
   @IsNotEmpty()
   @IsString()
-  lastName: string;
+  declare lastName: string;
 
   @IsNotEmpty()
   @IsEmail()
-  email: string;
+  declare email: string;
 
   @IsNotEmpty()
   @IsString()
-  password: string;
-
-  @IsNotEmpty()
-  @IsString()
-  confirmPassword?: string;
-  // @IsNotEmpty()
-  // plan?: string;
+  declare password: string;
 }
 
 export class LoginDto {
   @IsNotEmpty()
   @IsEmail()
-  email: string;
+  declare email: string;
 
   @IsNotEmpty()
   @IsString()
-  password: string;
-}
-
-export class CreateOrganizationDto {
-  @IsNotEmpty()
-  name: string;
-
-  @IsNotEmpty()
-  @IsEmail()
-  email: string;
+  declare password: string;
 }

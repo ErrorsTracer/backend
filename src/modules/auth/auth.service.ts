@@ -1,20 +1,18 @@
 import {
-  BadRequestException,
   Injectable,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Users } from '../../database/models/users.model';
 import { InjectModel } from '@nestjs/sequelize';
-import {
-  comparePassword,
-  generateRefreshToken,
-  hashPassword,
-  hashRefreshToken,
-} from '../../utils/bcrypt';
+import { comparePassword } from '../../utils/bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { CreateAccountDto } from './auth.dto';
 import { AuthRepository } from './auth.repo';
+
+import { createHash } from 'crypto';
+import { ERROR_KEYS } from '../../common/localization/error-keys';
+import { AUTH_CONSTANTS } from '../../common/constants/app.constants';
 
 @Injectable()
 export class AuthService {
@@ -32,45 +30,27 @@ export class AuthService {
       },
       raw: true,
     });
-    console.log('🚀 ~ AuthService ~ register ~ checkEmail:', checkEmail);
 
     if (checkEmail)
-      throw new UnprocessableEntityException('This email is already exist!');
+      throw new UnprocessableEntityException(ERROR_KEYS.EMAIL_ALREADY_EXISTS);
 
-    if (data.password !== data.confirmPassword)
-      throw new BadRequestException('Passwords are not matched!');
-
-    delete data?.confirmPassword;
-
-    data.password = (await hashPassword(data.password)) as string;
-
-    const newAccount = await this.usersRepository.create({
+    await this.usersRepository.create({
       ...data,
     } as any);
 
-    const user = (await newAccount.save()).toJSON();
-
-    const jwtPayload = { id: user.id, email: user.email };
-
-    const token = await this.jwtService.signAsync(jwtPayload);
-
-    // delete user.password;
-
-    // delete user.isVerified;
-    // delete user.suspended;
-
-    return {
-      accessToken: token,
-    };
+    return;
   }
 
   async login(data: any) {
-    const user = await this.authRepository.getUserByEmail(data.email);
+    const user = await this.authRepository.getUserByEmail(data.email, {
+      attributes: {
+        include: ['password'],
+        exclude: ['createdAt', 'updatedAt', 'avatar', 'firstName', 'lastName'],
+      },
+    });
 
     if (!user)
-      throw new UnauthorizedException(
-        'Incorrect credentials, please try again!',
-      );
+      throw new UnauthorizedException(ERROR_KEYS.INCORRECT_CREDENTIALS);
 
     try {
       data.password = await comparePassword(
@@ -79,31 +59,84 @@ export class AuthService {
       );
 
       if (!data.password)
-        throw new UnauthorizedException(
-          'Incorrect credentials, please try again!',
-        );
+        throw new UnauthorizedException(ERROR_KEYS.INCORRECT_CREDENTIALS);
 
       const jwtPayload = { id: user.id, email: user.email };
 
-      const token = await this.jwtService.signAsync(jwtPayload);
+      const accessToken = await this.jwtService.signAsync(jwtPayload, {
+        secret: process.env.ACCESS_TOKEN_SECRET,
+        expiresIn: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRES_IN,
+      });
 
-      const { tokenId, refreshToken } = generateRefreshToken();
-      const tokenHash = await hashRefreshToken(refreshToken);
+      const refreshToken = await this.jwtService.signAsync(
+        { sub: user.id },
+        {
+          secret: process.env.REFRESH_TOKEN_SECRET,
+          expiresIn: AUTH_CONSTANTS.REFRESH_TOKEN_EXPIRES_IN,
+        },
+      );
 
       await this.authRepository.saveRefreshToken({
-        tokenHash,
-        tokenId,
+        refreshToken: refreshToken,
         userId: user.id,
       });
 
       return {
-        accessToken: token,
-        refreshToken: tokenHash,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
       };
-    } catch (err) {
-      throw new UnauthorizedException(
-        'Incorrect credentials, please try again!',
+    } catch {
+      throw new UnauthorizedException(ERROR_KEYS.INCORRECT_CREDENTIALS);
+    }
+  }
+
+  async validateRefreshToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.REFRESH_TOKEN_SECRET,
+      });
+
+      const hashedRefreshToken = createHash('sha256')
+        .update(refreshToken)
+        .digest('hex');
+
+      const user =
+        await this.authRepository.findUserByRefreshToken(hashedRefreshToken);
+
+      if (!user) {
+        throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
+      }
+      // console.log(
+      //   'User found for refresh token:',
+      //   user.hashedToken === hashedRefreshToken,
+      // );
+
+      const newAccessToken = this.jwtService.sign(
+        { sub: payload.sub, email: payload.email },
+        {
+          secret: process.env.ACCESS_TOKEN_SECRET,
+          expiresIn: AUTH_CONSTANTS.REFRESH_ACCESS_TOKEN_EXPIRES_IN,
+        },
       );
+
+      // const newRefreshToken = this.jwtService.sign(
+      //   { sub: payload.sub },
+      //   {
+      //     secret: process.env.REFRESH_TOKEN_SECRET,
+      //     expiresIn: AUTH_CONSTANTS.ROTATED_REFRESH_TOKEN_EXPIRES_IN,
+      //   },
+      // );
+
+      //   await this.authRepository.saveRefreshToken({
+      //   refreshToken: newRefreshToken,
+      //   userId: payload.sub,
+      // });
+
+      return {
+        accessToken: newAccessToken,
+      };
+    } catch {
+      throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
     }
   }
 }

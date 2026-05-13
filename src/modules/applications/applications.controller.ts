@@ -11,7 +11,8 @@ import {
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { AuthGuard } from '../auth/auth.guard';
-import { CreateAppDto } from './applications.dto';
+import { CreateAppDto, InvitePeopleDto } from './applications.dto';
+import { UnGuard } from '../auth/auth.decorator';
 
 @Controller({ path: 'applications', version: '0.1' })
 @UseGuards(AuthGuard)
@@ -20,18 +21,24 @@ export class ApplicationsController {
 
   @Get('/')
   async getApps(@Body() data: any, @Req() req: any) {
-    return await this.appService.getApps(req.user);
+    return await this.appService.getMyApps(req.user);
   }
 
+  @Get('/:id/memberships')
+  async getAppMemberships(@Param() params: any, @Req() req: any) {
+    return await this.appService.getAppMemberships(params, req.user);
+  }
+
+  @UnGuard()
   @Get('/types')
   async getAppTypes() {
     return await this.appService.getAppTypes();
   }
 
-  // @Get('/:id')
-  // async getAppInfo(@Param() data: any, @Req() req: any) {
-  //   return await this.appService.getAppInfo(data, req.user);
-  // }
+  @Get('/:id')
+  async getAppInfo(@Param() data: any, @Req() req: any) {
+    return await this.appService.getAppInfo(data, req.user);
+  }
 
   // @Get('/:id/errors')
   // async getAppErrors(@Param() data: any, @Req() req: any) {
@@ -43,25 +50,34 @@ export class ApplicationsController {
     return await this.appService.createApp(data, req.user);
   }
 
-  // @Post('/:id/invite')
-  // async invitePeople(@Body() data: any, @Param() params: any, @Req() req: any) {
-  //   return await this.appService.invitePeople(data, params, req.user);
-  // }
+  @Put('/:id/credentials/production')
+  async updateProductionMode(@Param() params: any, @Req() req: any) {
+    return await this.appService.updateProductionMode(params, req.user);
+  }
 
-  // @Put('/:id/activate')
-  // async activateApp(@Param() params: any, @Req() req: any) {
-  //   return await this.appService.activateApp(params, req.user);
-  // }
+  @Post('/:id/invite')
+  async invitePeople(
+    @Body() data: InvitePeopleDto,
+    @Param() params: any,
+    @Req() req: any,
+  ) {
+    return await this.appService.invitePeople(data, params, req.user);
+  }
 
-  // @Put('/:id/deactivate')
-  // async deactivateApp(@Param() params: any, @Req() req: any) {
-  //   return await this.appService.deactivateApp(params, req.user);
-  // }
+  @Put('/:id/activate')
+  async activateApp(@Param() params: any, @Req() req: any) {
+    return await this.appService.activateApp(params, req.user);
+  }
 
-  // @Delete('/:id')
-  // async deleteApp(@Param() params: any, @Req() req: any) {
-  //   return await this.appService.deleteApp(params, req.user);
-  // }
+  @Put('/:id/suspend')
+  async suspendApp(@Param() params: any, @Req() req: any) {
+    return await this.appService.suspendApp(params, req.user);
+  }
+
+  @Delete('/:id')
+  async deleteApp(@Param() params: any, @Req() req: any) {
+    return await this.appService.deleteApp(params, req.user);
+  }
 
   // @Put('/:id')
   // async updateApp(@Body() data, @Param() params: any, @Req() req: any) {

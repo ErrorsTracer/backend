@@ -1,4 +1,4 @@
-import { Body, Controller, Version, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { RegistryService } from './registry.service';
 
 @Controller({ path: 'registry', version: '0.1' })

@@ -6,61 +6,86 @@ import {
   PrimaryKey,
   AllowNull,
   Default,
-  BeforeCreate,
   BelongsTo,
   ForeignKey,
+  BeforeCreate,
+  Index,
 } from 'sequelize-typescript';
-
+import { createHash } from 'crypto';
 import { Users } from './users.model';
+import { RefreshTokenStatus } from '../../common/constants/app.constants';
 
 @Table({
   tableName: 'refresh_tokens',
-  timestamps: false, // you manage timestamps manually
+  timestamps: true,
 })
 export class RefreshTokens extends Model<RefreshTokens> {
   @PrimaryKey
+  @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
   declare id: string;
 
-  @AllowNull(false)
+  @Index({ unique: true })
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  declare hashedToken: string;
+
+  @Column({
+    type: DataType.ENUM(
+      RefreshTokenStatus.ACTIVE,
+      RefreshTokenStatus.REVOKED,
+      RefreshTokenStatus.EXPIRED,
+    ),
+    allowNull: false,
+    defaultValue: RefreshTokenStatus.ACTIVE,
+  })
+  declare status: RefreshTokenStatus;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: false,
+  })
+  declare expiresAt: Date;
+
   @Column(DataType.STRING)
-  tokenHash: string;
+  declare deviceId: string | null;
 
-  @Default(false)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  isRevoked: boolean;
+  @Column(DataType.STRING)
+  declare ipAddress: string | null;
 
+  @Column(DataType.TEXT)
+  declare userAgent: string | null;
+
+  @Column(DataType.STRING)
+  declare sessionId: string;
   // ======================
   // Relations
   // ======================
 
+  @Index
   @ForeignKey(() => Users)
   @AllowNull(false)
   @Column(DataType.UUID)
-  userId: string;
+  declare userId: string;
 
   @BelongsTo(() => Users, {
+    foreignKey: 'userId',
     onDelete: 'CASCADE',
   })
-  user: Users;
+  declare user: Users;
 
-  // ======================
-  // Timestamps
-  // ======================
-
-  @Column(DataType.DATE)
-  declare createdAt: Date;
-
-  @Column(DataType.DATE)
-  declare expiresAt: Date;
-
-  // ======================
-  // Hooks
-  // ======================
+  static hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
 
   @BeforeCreate
-  static beforeCreateHook(instance: RefreshTokens) {
-    instance.createdAt = new Date();
+  static hashTokenHook(instance: RefreshTokens) {
+    if (instance.hashedToken) {
+      instance.hashedToken = createHash('sha256')
+        .update(instance.hashedToken)
+        .digest('hex');
+    }
   }
 }

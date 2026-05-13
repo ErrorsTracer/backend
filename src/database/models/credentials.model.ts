@@ -6,75 +6,61 @@ import {
   PrimaryKey,
   AllowNull,
   Default,
-  BeforeCreate,
-  BeforeUpdate,
   ForeignKey,
   BelongsTo,
+  BeforeCreate,
+  Index,
 } from 'sequelize-typescript';
-import { v4 as uuid } from 'uuid';
-import { Organizations } from './organizations.model';
+import { randomBytes } from 'crypto';
 import { Applications } from './applications.model';
-
-export enum CredentialEnv {
-  DEVELOPMENT = 'DEVELOPMENT',
-  PRODUCTION = 'PRODUCTION',
-}
 
 @Table({
   tableName: 'credentials',
-  timestamps: false, // manual timestamps
+  timestamps: true,
 })
 export class Credentials extends Model<Credentials> {
   @PrimaryKey
+  @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
   declare id: string;
 
-  @AllowNull(false)
+  @Index({ unique: true })
   @Column(DataType.STRING)
-  appKey: string;
+  declare appKey: string;
 
-  @Default(CredentialEnv.DEVELOPMENT)
+  @Default(false)
   @AllowNull(false)
-  @Column(DataType.ENUM(CredentialEnv.DEVELOPMENT, CredentialEnv.PRODUCTION))
-  env: CredentialEnv;
+  @Column(DataType.BOOLEAN)
+  declare isProductionEnabled: boolean;
 
   // ======================
   // Relations
   // ======================
 
+  @Index({ unique: true })
   @ForeignKey(() => Applications)
-  @AllowNull(true)
+  @AllowNull(false)
   @Column(DataType.UUID)
-  applicationId: string | null;
+  declare applicationId: string;
 
   @BelongsTo(() => Applications, {
     onDelete: 'CASCADE',
   })
-  application: Applications | null;
-
-  // ======================
-  // Timestamps
-  // ======================
-
-  @Column(DataType.DATE)
-  declare createdAt: Date;
-
-  @Column(DataType.DATE)
-  declare updatedAt: Date;
-
-  // ======================
-  // Hooks
-  // ======================
+  declare application: Applications;
 
   @BeforeCreate
-  static beforeCreateHook(instance: Credentials) {
-    instance.id = uuid();
-    instance.createdAt = new Date();
-    instance.updatedAt = new Date();
+  static saveAppKey(instance: Credentials) {
+    if (!instance.appKey) {
+      instance.appKey = Credentials.generateAppKey();
+    }
   }
 
-  @BeforeUpdate
-  static beforeUpdateHook(instance: Credentials) {
-    instance.updatedAt = new Date();
+  private static generateAppKey(length = 26): string {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const bytes = randomBytes(length);
+
+    return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join(
+      '',
+    );
   }
 }

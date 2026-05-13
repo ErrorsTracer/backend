@@ -14,7 +14,7 @@ import { v4 as uuid } from 'uuid';
 import { Applications } from './applications.model';
 
 @Table({
-  tableName: 'errors',
+  tableName: 'errors-logs',
   timestamps: true,
 })
 export class Errors extends Model<Errors> {
@@ -24,39 +24,39 @@ export class Errors extends Model<Errors> {
 
   @AllowNull(false)
   @Column(DataType.STRING)
-  error: string;
+  declare error: string;
 
   @AllowNull(true)
   @Column(DataType.TEXT)
-  stack: string;
+  declare stack: string;
 
   @AllowNull(true)
   @Column(DataType.TEXT)
-  additionalData: string;
+  declare additionalData: string;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  href: string;
+  declare href: string;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  host: string;
+  declare host: string;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  client: string;
+  declare client: string;
 
   @Default(1)
   @Column(DataType.INTEGER)
-  repeated: number;
+  declare repeated: number;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  clientAgent: string;
+  declare clientAgent: string;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  clientPlatform: string;
+  declare clientPlatform: string;
 
   // ======================
   // Relations
@@ -65,10 +65,10 @@ export class Errors extends Model<Errors> {
   @ForeignKey(() => Applications)
   @AllowNull(false)
   @Column(DataType.UUID)
-  applicationId: string;
+  declare applicationId: string;
 
   @BelongsTo(() => Applications)
-  application: Applications;
+  declare application: Applications;
 
   // ======================
   // Hooks

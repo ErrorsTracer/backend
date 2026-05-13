@@ -8,98 +8,98 @@ import {
   Default,
   Unique,
   HasMany,
-  HasOne,
   BeforeCreate,
-  BeforeUpdate,
+  Index,
 } from 'sequelize-typescript';
-import { v4 as uuid } from 'uuid';
-import { Organizations } from './organizations.model';
-import { OrganizationMembership } from './organization-membership.model';
-import { Subscriptions } from './subscription.model';
 import { ApplicationMembership } from './application-membership.model';
+import bcrypt from 'bcrypt';
+import { UserProvider } from '../../common/constants/app.constants';
+import { Notifications } from './notifications.model';
 
 @Table({
   tableName: 'users',
-  timestamps: false, // you manage timestamps manually
+  timestamps: true,
+  defaultScope: {
+    attributes: { exclude: ['password'] },
+  },
+  scopes: {
+    withPassword: {
+      attributes: { include: ['password'] },
+    },
+  },
 })
 export class Users extends Model<Users> {
   @PrimaryKey
+  @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
   declare id: string;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  firstName: string | null;
+  declare firstName: string | null;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  lastName: string | null;
+  declare lastName: string | null;
 
   @Default('default.png')
   @AllowNull(false)
   @Column(DataType.STRING)
-  avatar: string;
+  declare avatar: string;
 
   @Unique
   @AllowNull(false)
   @Column(DataType.STRING)
-  email: string;
-
-  @Default(false)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  isVerified: boolean;
+  declare email: string;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  password: string | null;
+  declare password: string | null;
+
+  @Column({
+    type: DataType.ENUM(
+      UserProvider.LOCAL,
+      UserProvider.GOOGLE,
+      UserProvider.GITHUB,
+    ),
+    allowNull: false,
+    defaultValue: UserProvider.LOCAL,
+  })
+  declare provider: UserProvider;
 
   @Default(false)
   @AllowNull(false)
   @Column(DataType.BOOLEAN)
-  isSuspended: boolean;
+  declare isSuspended: boolean;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  })
+  @Index
+  declare isVerified: boolean;
 
   // ======================
   // Relations
   // ======================
 
-  @HasMany(() => Organizations, 'userId')
-  organizations: Organizations[];
-
-  @HasMany(() => OrganizationMembership, 'userId')
-  orgsMembership: OrganizationMembership[];
-
   @HasMany(() => ApplicationMembership, 'userId')
-  appsMembership: ApplicationMembership[];
+  declare applicationMemberships: ApplicationMembership[];
 
-  @HasOne(() => Subscriptions, {
-    onDelete: 'CASCADE',
-  })
-  subscription: Subscriptions;
+  @HasMany(() => Notifications, 'userId')
+  declare notifications: Notifications[];
 
-  // ======================
-  // Timestamps
-  // ======================
-
-  @Column(DataType.DATE)
-  declare createdAt: Date;
-
-  @Column(DataType.DATE)
-  declare updatedAt: Date;
-
-  // ======================
-  // Hooks
-  // ======================
-
+  // hooks to normalize email and handle UUID generation
   @BeforeCreate
-  static beforeCreateHook(instance: Users) {
-    instance.id = uuid();
-    instance.createdAt = new Date();
-    instance.updatedAt = new Date();
+  static normalizeEmail(instance: Users) {
+    instance.email = instance.email.toLowerCase().trim();
   }
 
-  @BeforeUpdate
-  static beforeUpdateHook(instance: Users) {
-    instance.updatedAt = new Date();
+  @BeforeCreate
+  static async hashPassword(instance: Users) {
+    if (instance.password) {
+      instance.password = await bcrypt.hash(instance.password, 10);
+    }
   }
 }

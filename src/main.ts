@@ -1,13 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import {
+  BadRequestException,
   ValidationPipe,
   VERSION_NEUTRAL,
   VersioningType,
 } from '@nestjs/common';
 import * as dotenv from 'dotenv';
+import { ValidationError } from 'class-validator';
 
 import cookieParser from 'cookie-parser';
+import { LocalizedHttpExceptionFilter } from './common/filters/localized-http-exception.filter';
+import { LocalizationService } from './common/localization/localization.service';
+import { ERROR_KEYS } from './common/localization/error-keys';
 
 async function bootstrap() {
   // configure environment variables
@@ -22,13 +27,26 @@ async function bootstrap() {
 
   // enable cors
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: 'http://localhost:3000',
     credentials: true,
-    withCredentials: true,
   });
 
   // initialize global validation pipe
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      exceptionFactory: (errors: ValidationError[]) =>
+        new BadRequestException({
+          message: ERROR_KEYS.VALIDATION_FAILED,
+          errors: errors.map((error) => ({
+            property: error.property,
+            constraints: error.constraints,
+          })),
+        }),
+    }),
+  );
+  app.useGlobalFilters(
+    new LocalizedHttpExceptionFilter(new LocalizationService()),
+  );
 
   // enable api versioning
   app.enableVersioning({
@@ -39,4 +57,5 @@ async function bootstrap() {
   // start listening on port 4973
   await app.listen(process.env.APP_PORT ?? 4973);
 }
-bootstrap();
+
+void bootstrap();

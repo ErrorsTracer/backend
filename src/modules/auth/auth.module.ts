@@ -16,7 +16,6 @@ import { RefreshTokens } from '../../database/models/refresh-tokens.model';
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET?.toString(),
-      signOptions: { expiresIn: '20s' },
     }),
   ],
   controllers: [AuthController],

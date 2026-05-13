@@ -8,82 +8,93 @@ import {
   Default,
   ForeignKey,
   BelongsTo,
-  BeforeCreate,
-  BeforeUpdate,
+  Index,
 } from 'sequelize-typescript';
-import { v4 as uuid } from 'uuid';
-import { Applications } from './applications.model';
 import { Users } from './users.model';
+import { Applications } from './applications.model';
+import {
+  ApplicationMembershipRole,
+  ApplicationMembershipStatus,
+} from '../../common/constants/app.constants';
 
 @Table({
   tableName: 'application_memberships',
-  timestamps: false, // timestamps are manually handled
+  timestamps: true,
+  paranoid: true,
+  scopes: {
+    active: {
+      where: { status: ApplicationMembershipStatus.ACTIVE },
+    },
+  },
 })
 export class ApplicationMembership extends Model<ApplicationMembership> {
   @PrimaryKey
+  @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
   declare id: string;
 
-  @Default(true)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  isActive: boolean;
+  @Column({
+    type: DataType.ENUM(
+      ApplicationMembershipStatus.ACTIVE,
+      ApplicationMembershipStatus.INVITED,
+      ApplicationMembershipStatus.SUSPENDED,
+      ApplicationMembershipStatus.REVOKED,
+      ApplicationMembershipStatus.LEFT,
+    ),
+    allowNull: false,
+    defaultValue: ApplicationMembershipStatus.ACTIVE,
+  })
+  declare status: ApplicationMembershipStatus;
 
-  @Default(false)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  isOwner: boolean;
+  @Column({
+    type: DataType.ENUM(
+      ApplicationMembershipRole.OWNER,
+      ApplicationMembershipRole.ADMIN,
+      ApplicationMembershipRole.MEMBER,
+    ),
+    allowNull: false,
+    defaultValue: ApplicationMembershipRole.MEMBER,
+  })
+  declare role: ApplicationMembershipRole;
 
-  @Default(true)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  isActiveMembership: boolean;
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+  })
+  declare joinedAt: Date | null;
 
-  // ======================
-  // Relations
-  // ======================
-
+  @Index
   @ForeignKey(() => Applications)
   @AllowNull(false)
   @Column(DataType.UUID)
-  applicationId: string;
+  declare applicationId: string;
 
   @BelongsTo(() => Applications, {
-    onDelete: 'CASCADE',
+    foreignKey: 'applicationId',
+    onDelete: 'RESTRICT',
   })
-  application: Applications;
+  declare application: Applications;
 
+  @Index
   @ForeignKey(() => Users)
   @AllowNull(false)
   @Column(DataType.UUID)
-  memberId: string;
+  declare userId: string;
 
-  @BelongsTo(() => Users)
-  member: Users;
+  @BelongsTo(() => Users, {
+    foreignKey: 'userId',
+  })
+  declare user: Users;
 
-  // ======================
-  // Timestamps
-  // ======================
+  @Index
+  @ForeignKey(() => Users)
+  @AllowNull(true)
+  @Column(DataType.UUID)
+  declare invitedBy: string | null;
 
-  @Column(DataType.DATE)
-  declare createdAt: Date;
-
-  @Column(DataType.DATE)
-  declare updatedAt: Date;
-
-  // ======================
-  // Hooks
-  // ======================
-
-  @BeforeCreate
-  static beforeCreateHook(instance: ApplicationMembership) {
-    instance.id = uuid();
-    instance.createdAt = new Date();
-    instance.updatedAt = new Date();
-  }
-
-  @BeforeUpdate
-  static beforeUpdateHook(instance: ApplicationMembership) {
-    instance.updatedAt = new Date();
-  }
+  @BelongsTo(() => Users, {
+    foreignKey: 'invitedBy',
+    onDelete: 'SET NULL',
+  })
+  declare invitedByUser: Users;
 }

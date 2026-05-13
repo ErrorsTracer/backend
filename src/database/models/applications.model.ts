@@ -6,115 +6,119 @@ import {
   PrimaryKey,
   AllowNull,
   Default,
-  BeforeCreate,
-  BeforeUpdate,
   ForeignKey,
   BelongsTo,
   HasMany,
+  HasOne,
+  Index,
+  Scopes,
 } from 'sequelize-typescript';
-import { v4 as uuid } from 'uuid';
-import { Organizations } from './organizations.model';
 import { Credentials } from './credentials.model';
 import { ApplicationMembership } from './application-membership.model';
 import { Errors } from './errors.model';
 import { ApplicationTypes } from './application-types.model';
+import { Users } from './users.model';
+import { Notifications } from './notifications.model';
+import {
+  ApplicationMembershipStatus,
+  ApplicationStatus,
+} from '../../common/constants/app.constants';
 
-// import { Errors } from './Errors';
-
+@Scopes(() => ({
+  associatedWithUser: (userId: string) => ({
+    include: [
+      {
+        model: ApplicationMembership,
+        attributes: [],
+        where: {
+          userId,
+          status: ApplicationMembershipStatus.ACTIVE,
+        },
+        required: true,
+      },
+    ],
+  }),
+}))
 @Table({
   tableName: 'applications',
-  timestamps: false, // manually handled
+  timestamps: true,
+  paranoid: true,
+  defaultScope: {
+    where: {
+      status: ApplicationStatus.ACTIVE,
+    },
+  },
 })
 export class Applications extends Model<Applications> {
   @PrimaryKey
+  @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
   declare id: string;
 
   @AllowNull(false)
-  @Column(DataType.STRING)
-  name: string;
+  @Index({ name: 'applications_owner_name_unique', unique: true })
+  @Column(DataType.STRING(120))
+  declare name: string;
 
   @AllowNull(true)
   @Column(DataType.TEXT)
-  about: string | null;
+  declare about: string | null;
+
+  @Index
+  @Column({
+    type: DataType.ENUM(ApplicationStatus.ACTIVE, ApplicationStatus.SUSPENDED),
+    allowNull: false,
+    defaultValue: ApplicationStatus.ACTIVE,
+  })
+  declare status: ApplicationStatus;
 
   @Default(false)
   @AllowNull(false)
   @Column(DataType.BOOLEAN)
-  isActive: boolean;
-
-  @Default(false)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  isDeleted: boolean;
-
-  @Default(false)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  isSuspended: boolean;
-
-  @Default(false)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  allowNotifications: boolean;
+  declare allowNotifications: boolean;
 
   // ======================
   // Relations
   // ======================
 
-  @HasMany(() => Credentials, {
-    onDelete: 'CASCADE',
+  @Index({ name: 'applications_owner_name_unique', unique: true })
+  @Index
+  @ForeignKey(() => Users)
+  @AllowNull(false)
+  @Column(DataType.UUID)
+  declare ownerId: string;
+
+  @BelongsTo(() => Users, {
+    foreignKey: 'ownerId',
+    onDelete: 'RESTRICT',
   })
-  credentials: Credentials[];
+  declare owner: Users;
+
+  @HasOne(() => Credentials, {
+    onDelete: 'RESTRICT',
+  })
+  declare credential: Credentials;
 
   @HasMany(() => ApplicationMembership, {
-    onDelete: 'CASCADE',
+    onDelete: 'RESTRICT',
   })
-  membership: ApplicationMembership[];
+  declare memberships: ApplicationMembership[];
+
+  @HasMany(() => Notifications, {
+    onDelete: 'SET NULL',
+  })
+  declare notifications: Notifications[];
 
   // Uncomment if you re-enable Errors
   @HasMany(() => Errors)
-  errors: Errors[];
+  declare errors: Errors[];
 
+  @Index
   @ForeignKey(() => ApplicationTypes)
   @AllowNull(false)
   @Column(DataType.UUID)
-  typeId: string;
+  declare typeId: string;
 
   @BelongsTo(() => ApplicationTypes)
-  type: ApplicationTypes;
-
-  @ForeignKey(() => Organizations)
-  @AllowNull(false)
-  @Column(DataType.UUID)
-  organizationId: string;
-
-  @BelongsTo(() => Organizations)
-  organization: Organizations;
-
-  // ======================
-  // Timestamps
-  // ======================
-
-  @Column(DataType.DATE)
-  declare createdAt: Date;
-
-  @Column(DataType.DATE)
-  declare updatedAt: Date;
-
-  // ======================
-  // Hooks
-  // ======================
-
-  @BeforeCreate
-  static beforeCreateHook(instance: Applications) {
-    instance.id = uuid();
-    instance.createdAt = new Date();
-    instance.updatedAt = new Date();
-  }
-
-  @BeforeUpdate
-  static beforeUpdateHook(instance: Applications) {
-    instance.updatedAt = new Date();
-  }
+  declare type: ApplicationTypes;
 }

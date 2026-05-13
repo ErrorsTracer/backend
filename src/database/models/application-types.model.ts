@@ -6,9 +6,10 @@ import {
   PrimaryKey,
   AllowNull,
   HasMany,
+  Default,
+  Index,
   BeforeCreate,
 } from 'sequelize-typescript';
-import { v4 as uuid } from 'uuid';
 import { Applications } from './applications.model';
 
 @Table({
@@ -17,34 +18,37 @@ import { Applications } from './applications.model';
 })
 export class ApplicationTypes extends Model<ApplicationTypes> {
   @PrimaryKey
+  @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
   declare id: string;
 
   @AllowNull(false)
-  @Column(DataType.STRING)
-  type: string;
+  @Index({ unique: true })
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  declare type: string;
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  picture: string;
+  declare picture: string;
 
   @AllowNull(true)
   @Column(DataType.TEXT)
-  about: string;
+  declare about: string;
 
   // ======================
   // Relations
   // ======================
 
-  @HasMany(() => Applications)
-  applications: Applications[];
-
-  // ======================
-  // Hooks
-  // ======================
+  @HasMany(() => Applications, {
+    foreignKey: 'typeId',
+  })
+  declare applications: Applications[];
 
   @BeforeCreate
-  static beforeCreateHook(instance: ApplicationTypes) {
-    instance.id = uuid();
+  static normalizeType(instance: ApplicationTypes) {
+    instance.type = instance.type.toLowerCase().trim();
   }
 }

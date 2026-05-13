@@ -1,17 +1,27 @@
-import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateAppDto {
   @IsNotEmpty()
-  name: string;
+  declare name: string;
 
   @IsOptional()
-  about: string;
+  declare about: string;
 
   @IsNotEmpty()
   @IsUUID()
-  appType: string;
+  declare appType: string;
+}
 
-  @IsNotEmpty()
-  @IsUUID()
-  orgId: string;
+export class InvitePeopleDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsEmail({}, { each: true })
+  declare emails: string[];
 }

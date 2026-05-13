@@ -1,431 +1,296 @@
 import {
-  Injectable,
-  UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { ApplicationsRepository } from './applications.repo';
+import { ERROR_KEYS } from '../../common/localization/error-keys';
+import {
+  ApplicationMembershipRole,
+  ApplicationMembershipStatus,
+  ApplicationStatus,
+  NotificationType,
+} from '../../common/constants/app.constants';
+import { TransactionManager } from '../../helpers/transaction.helper';
 
 @Injectable()
 export class ApplicationsService {
-  constructor(private applicationsRepository: ApplicationsRepository) {}
+  constructor(
+    private applicationsRepository: ApplicationsRepository,
+    private transactionManager: TransactionManager,
+  ) {}
 
-  async getApps(user) {
-    const appsMembership =
-      await this.applicationsRepository.getAppsMembershipByUserId({
-        memberId: user.id,
-        isActiveMembership: true,
-      });
+  async getMyApps(user) {
+    return await this.applicationsRepository.getUserApps(user.id);
+  }
 
-    return appsMembership;
+  async getAppMemberships(params, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    return await this.applicationsRepository.getApplicationMemberships(
+      params.id,
+    );
   }
 
   async getAppTypes() {
     return await this.applicationsRepository.getAppTypes();
   }
 
-  async createApp(data, user) {
-    const org = await this.applicationsRepository.getOrgMembershipById({
-      orgId: data.orgId,
+  async updateProductionMode(params, user) {
+    const application = await this.applicationsRepository.getAllAppInfo({
+      applicationId: params.id,
       userId: user.id,
-      isOwner: true,
     });
 
-    if (!org)
-      throw new UnauthorizedException(
-        'You do not have permissions to create apps for this organization!',
-      );
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
 
-    const duplicatedApp =
-      await this.applicationsRepository.findAppByNameAndOrgId({
-        name: data.name,
-        orgId: data.orgId,
-      });
+    const credential = await this.applicationsRepository.updateProductionMode({
+      applicationId: params.id,
+      isProductionEnabled: !application.credential.isProductionEnabled,
+    });
 
-    if (duplicatedApp)
-      throw new BadRequestException('This app is already exist!');
+    if (!credential) {
+      throw new NotFoundException(ERROR_KEYS.CREDENTIAL_NOT_FOUND);
+    }
 
-    const appType = await this.applicationsRepository.getAppTypeById(
-      data.appType,
-    );
-
-    if (!appType)
-      throw new BadRequestException('There is no app type with the given id!');
-
-    return await this.applicationsRepository.createApplication(
-      {
-        name: data.name,
-        about: data.about,
-        typeId: appType.dataValues.id,
-        organizationId: org.dataValues.organization.id,
-      },
-      user,
-    );
+    return { message: 'Production mode updated successfully' };
   }
 
-  // async getAppInfo(data, user) {
-  //   // check app membership
-
-  //   const membership = await this.appMembershipRepository.findOne({
-  //     where: {
-  //       member: { id: user.id },
-  //       isActive: true,
-  //       application: { id: data.id },
-  //     },
-  //     relations: ['member', 'application'],
-  //   });
-
-  //   // console.log(membership);
-
-  //   // get app info with credentials
-  //   const credentials = await this.credentialsRepository.find({
-  //     where: { application: { id: membership.application.id } },
-  //     relations: ['application'],
-  //   });
-
-  //   for (let i of credentials) {
-  //     delete i.application;
-  //   }
-  //   delete membership.member;
-
-  //   // if user is not owner, delete credentials from returned object
-
-  //   const newData: any = {};
-
-  //   if (membership.isOwner) newData.credentials = credentials;
-
-  //   newData;
-
-  //   newData.application = await this.appsRepository.findOne({
-  //     where: { id: membership.application.id },
-  //     relations: {
-  //       type: true,
-  //     },
-  //   });
-
-  //   // get all app memberships
-
-  //   const members = await this.appMembershipRepository.find({
-  //     where: { application: { id: membership.application.id } },
-  //     relations: ['application', 'member'],
-  //   });
-
-  //   newData.members = members.map((item) => {
-  //     if (item.member.email === user.email) {
-  //       return { ...item, isYou: true };
-  //     }
-  //     return { ...item, isYou: false };
-  //   });
-
-  //   delete membership.application;
-  //   newData.member = membership;
-
-  //   return newData;
-  // }
-
-  // async invitePeople(data, params, user) {
-  //   // check if owner is exist
-  //   const checkForUser = await this.usersRepository.findOneBy({ id: user.id });
-
-  //   if (!checkForUser)
-  //     throw new UnauthorizedException('No user associated with this account!');
-
-  //   // check if org is exist
-  //   const appMembership: any = await this.appMembershipRepository.findOne({
-  //     where: { application: { id: params.id } },
-  //     relations: ['application'],
-  //   });
-
-  //   if (!appMembership.isOwner)
-  //     throw new UnauthorizedException('You are not the application owner!');
-
-  //   // check if the new user is already invited
-  //   const checkForInvitedUser: any = await this.usersRepository.findOneBy({
-  //     email: data.email,
-  //   });
-
-  //   // if invited user is not exist, create a guest account and send invitation email
-  //   if (!checkForInvitedUser) {
-  //     const newUser = await this.usersRepository.create({
-  //       firstName: data.email.split('@')[0],
-  //       lastName: null,
-  //       email: data.data.email,
-  //       password: null,
-  //     });
-
-  //     const savedUser: any = await this.usersRepository.save(newUser);
-
-  //     const membership = await this.appMembershipRepository.create({
-  //       isActive: false,
-  //       isOwner: false,
-  //       activeMembership: false,
-  //       application: appMembership.application.id,
-  //       member: savedUser.id,
-  //     });
-
-  //     await this.appMembershipRepository.save(membership);
-
-  //     return await this.getAppInfo(params, user);
-  //   } else {
-  //     // create membership for the invited user
-  //     const membership = await this.appMembershipRepository.create({
-  //       isActive: true,
-  //       isOwner: false,
-  //       activeMembership: true,
-  //       application: appMembership.application.id,
-  //       member: checkForInvitedUser.id,
-  //     } as any);
-
-  //     await this.appMembershipRepository.save(membership);
-
-  //     return await this.getAppInfo(params, user);
-  //   }
-  // }
-
-  // async activateApp(params, user) {
-  //   // check if owner is exist
-  //   const checkForUser = await this.usersRepository.findOneBy({ id: user.id });
-
-  //   if (!checkForUser)
-  //     throw new UnauthorizedException('No user associated with this account!');
-
-  //   // check if org is exist
-  //   const appMembership: any = await this.appMembershipRepository.findOne({
-  //     where: { application: { id: params.id } },
-  //     relations: ['application'],
-  //   });
-
-  //   if (!appMembership.isOwner)
-  //     throw new UnauthorizedException('You are not the application owner!');
-
-  //   const application = await this.appsRepository.findOne({
-  //     where: { id: appMembership.application.id },
-  //   });
-
-  //   application.isActive = true;
-
-  //   await this.appsRepository.save(application);
-
-  //   return await this.getAppInfo(params, user);
-  // }
-
-  // async getRegisteredErrors(params, user) {
-  //   // check if user is exist
-  //   const checkUser = await this.usersRepository.findOne({
-  //     where: { id: user.id },
-  //   });
-
-  //   if (!checkUser) throw new NotFoundException('No user found!');
-
-  //   // check if user has membership in the app
-  //   const membership = await this.appMembershipRepository.findOne({
-  //     where: {
-  //       application: { id: params.id },
-  //       member: { id: checkUser.id },
-  //       activeMembership: true,
-  //     },
-  //     relations: {
-  //       application: true,
-  //       member: true,
-  //     },
-  //   });
-
-  //   if (!membership)
-  //     throw new UnprocessableEntityException('User membership is not active');
-
-  //   const errors = await this.errorsRepository.find({
-  //     where: { application: { id: membership.application.id } },
-  //     relations: ['application'],
-  //   });
-
-  //   for (let i of errors) {
-  //     delete i.application;
-  //   }
-
-  //   return errors;
-  // }
-
-  // async deactivateApp(params, user) {
-  //   // check if owner is exist
-  //   const checkForUser = await this.usersRepository.findOneBy({ id: user.id });
-
-  //   if (!checkForUser)
-  //     throw new UnauthorizedException('No user associated with this account!');
-
-  //   // check if org is exist
-  //   const appMembership: any = await this.appMembershipRepository.findOne({
-  //     where: {
-  //       application: { id: params.id },
-  //       member: { id: checkForUser.id },
-  //     },
-  //     relations: ['application', 'member'],
-  //   });
-
-  //   if (!appMembership.isOwner)
-  //     throw new UnauthorizedException('You are not the application owner!');
-
-  //   const application = await this.appsRepository.findOne({
-  //     where: { id: appMembership.application.id },
-  //   });
-
-  //   application.isActive = false;
-
-  //   const allMemberships = await this.appMembershipRepository.find({
-  //     where: { application: { id: application.id }, isOwner: false },
-  //     relations: { application: true },
-  //   });
-
-  //   for (let i of allMemberships) {
-  //     i.activeMembership = false;
-  //     delete i.application;
-  //   }
-
-  //   await this.appsRepository.save(application);
-
-  //   await this.appMembershipRepository.save(allMemberships);
-
-  //   return await this.getAppInfo(params, user);
-  // }
-
-  // async deleteApp(params, user) {
-  //   // check if owner is exist
-  //   const checkForUser = await this.usersRepository.findOneBy({ id: user.id });
-
-  //   if (!checkForUser)
-  //     throw new UnauthorizedException('No user associated with this account!');
-
-  //   // check if org is exist
-  //   const appMembership: any = await this.appMembershipRepository.findOne({
-  //     where: {
-  //       application: { id: params.id },
-  //       member: { id: checkForUser.id },
-  //     },
-  //     relations: ['application', 'member'],
-  //   });
-
-  //   if (!appMembership.isOwner)
-  //     throw new UnauthorizedException('You are not the application owner!');
-
-  //   const application = await this.appsRepository.findOne({
-  //     where: { id: appMembership.application.id },
-  //   });
-
-  //   await this.appsRepository.remove(application);
-
-  //   return { message: 'Application deleted successfully!' };
-  // }
-
-  // async updateApp(data, params, user) {
-  //   // check if owner is exist
-
-  //   const checkForUser = await this.usersRepository.findOneBy({ id: user.id });
-
-  //   if (!checkForUser)
-  //     throw new NotFoundException('No user associated with this account!');
-
-  //   // check if org is exist
-  //   const appMembership: any = await this.appMembershipRepository.findOne({
-  //     where: {
-  //       application: { id: params.id },
-  //       member: { id: checkForUser.id },
-  //     },
-  //     relations: ['application', 'member'],
-  //   });
-
-  //   if (!appMembership.isOwner)
-  //     throw new UnprocessableEntityException(
-  //       'You are not the application owner!',
-  //     );
-
-  //   const application = await this.appsRepository.findOne({
-  //     where: { id: appMembership.application.id },
-  //   });
-
-  //   if (typeof data?.allowNotifications !== 'undefined')
-  //     application.allowNotifications = data?.allowNotifications;
-  //   if (data?.name) application.name = data?.name;
-  //   if (data?.about) application.about = data?.about;
-
-  //   await this.appsRepository.save(application);
-
-  //   return await this.getAppInfo(params, user);
-  // }
-
-  // async deleteMember(params, user) {
-  //   const checkForUser = await this.usersRepository.findOneBy({ id: user.id });
-
-  //   if (!checkForUser)
-  //     throw new NotFoundException('No user associated with this account!');
-
-  //   const appMembership = await this.appMembershipRepository.findOne({
-  //     where: { id: params.id },
-  //     relations: {
-  //       member: true,
-  //       application: true,
-  //     },
-  //   });
-
-  //   if (!appMembership) throw new NotFoundException('No application found!');
-
-  //   const ownerMembership = await this.appMembershipRepository.findOne({
-  //     where: {
-  //       application: { id: appMembership.application.id },
-  //       member: { id: checkForUser.id },
-  //     },
-  //     relations: { application: true, member: true },
-  //   });
-
-  //   if (!ownerMembership.isOwner)
-  //     throw new UnprocessableEntityException(
-  //       'You do not have permissions to delete this membership!',
-  //     );
-
-  //   const membership = await this.appMembershipRepository.findOne({
-  //     where: { id: appMembership.id },
-  //   });
-
-  //   await this.appMembershipRepository.remove(membership);
-
-  //   return this.getAppInfo({ id: appMembership.application.id }, user);
-  // }
-
-  // async deactivateMember(params, user) {
-  //   const checkForUser = await this.usersRepository.findOneBy({ id: user.id });
-
-  //   if (!checkForUser)
-  //     throw new NotFoundException('No user associated with this account!');
-
-  //   const appMembership = await this.appMembershipRepository.findOne({
-  //     where: { id: params.id },
-  //     relations: {
-  //       member: true,
-  //       application: true,
-  //     },
-  //   });
-
-  //   if (!appMembership) throw new NotFoundException('No application found!');
-
-  //   const ownerMembership = await this.appMembershipRepository.findOne({
-  //     where: {
-  //       application: { id: appMembership.application.id },
-  //       member: { id: checkForUser.id },
-  //     },
-  //     relations: { application: true, member: true },
-  //   });
-
-  //   if (!ownerMembership.isOwner)
-  //     throw new UnprocessableEntityException(
-  //       'You do not have permissions to delete this membership!',
-  //     );
-
-  //   const membership = await this.appMembershipRepository.findOne({
-  //     where: { id: appMembership.id },
-  //   });
-
-  //   membership.activeMembership = !membership.activeMembership;
-
-  //   await this.appMembershipRepository.save(membership);
-
-  //   return this.getAppInfo({ id: appMembership.application.id }, user);
-  // }
+  async createApp(data, user) {
+    const duplicatedApp = await this.applicationsRepository.getAppByNameForUser(
+      {
+        name: data.name,
+        userId: user.id,
+      },
+    );
+
+    if (duplicatedApp) {
+      throw new BadRequestException(ERROR_KEYS.APP_ALREADY_EXISTS);
+    }
+
+    const trans = await this.transactionManager.runInTransaction(
+      async (transaction) => {
+        const application = await this.applicationsRepository.createApplication(
+          {
+            name: data.name,
+            about: data.about,
+            typeId: data.appType,
+            ownerId: user.id,
+          },
+          transaction,
+        );
+
+        const membership =
+          await this.applicationsRepository.createApplicationMembership(
+            {
+              applicationId: application.dataValues.id,
+              userId: user.id,
+              role: ApplicationMembershipRole.OWNER,
+              status: ApplicationMembershipStatus.ACTIVE,
+              joinedAt: new Date(),
+            },
+            transaction,
+          );
+
+        const credential = await this.applicationsRepository.createCredential(
+          {
+            applicationId: application.dataValues.id,
+            isProductionEnabled: false,
+          },
+          transaction,
+        );
+
+        return { ...application.toJSON(), membership, credential };
+      },
+    );
+
+    return await this.applicationsRepository.getAppByIdForUser({
+      applicationId: trans.id,
+      userId: user.id,
+    });
+  }
+
+  async invitePeople(data: { emails: string[] }, params, user) {
+    const application = await this.applicationsRepository.getAllAppInfo({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const ownerMembership =
+      await this.applicationsRepository.getOwnerMembershipForApp({
+        applicationId: params.id,
+        userId: user.id,
+      });
+
+    if (!ownerMembership) {
+      throw new ForbiddenException(ERROR_KEYS.APP_INVITE_FORBIDDEN);
+    }
+
+    const emails = [
+      ...new Set(
+        data.emails.map((email: string) => email.toLowerCase().trim()),
+      ),
+    ];
+
+    const result = await this.transactionManager.runInTransaction(
+      async (transaction) => {
+        for (const email of emails) {
+          let invitedUser =
+            await this.applicationsRepository.getUserByEmail(email);
+
+          if (!invitedUser) {
+            invitedUser = await this.applicationsRepository.createUserByEmail(
+              email,
+              transaction,
+            );
+          }
+
+          await this.applicationsRepository.getMembershipByAppAndUser(
+            params.id,
+            invitedUser.dataValues.id,
+          );
+
+          await this.applicationsRepository.createApplicationMembership(
+            {
+              applicationId: params.id,
+              userId: invitedUser.dataValues.id,
+              role: ApplicationMembershipRole.MEMBER,
+              status: ApplicationMembershipStatus.INVITED,
+              joinedAt: null,
+              invitedBy: user.id,
+            },
+            transaction,
+          );
+
+          await this.applicationsRepository.createNotification(
+            {
+              applicationId: params.id,
+              userId: invitedUser.dataValues.id,
+              type: NotificationType.APPLICATION_INVITE,
+              message: `You have been invited to ${application.dataValues.name}.`,
+            },
+            transaction,
+          );
+        }
+
+        return { message: 'Invitation process completed' };
+      },
+    );
+
+    return result;
+  }
+
+  async deleteApp(params, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const ownerMembership =
+      await this.applicationsRepository.getOwnerMembershipForApp({
+        applicationId: params.id,
+        userId: user.id,
+      });
+
+    if (!ownerMembership) {
+      throw new ForbiddenException(ERROR_KEYS.APP_DELETE_FORBIDDEN);
+    }
+
+    await this.transactionManager.runInTransaction(async (transaction) => {
+      await this.applicationsRepository.deleteCredentialsByApplicationId(
+        params.id,
+        transaction,
+      );
+      await this.applicationsRepository.deleteMembershipsByApplicationId(
+        params.id,
+        transaction,
+      );
+      await this.applicationsRepository.deleteErrorsByApplicationId(
+        params.id,
+        transaction,
+      );
+      await this.applicationsRepository.deleteApplication(
+        params.id,
+        transaction,
+      );
+    });
+
+    return { message: 'Application deleted successfully' };
+  }
+
+  async activateApp(params, user) {
+    await this.updateAppStatus(params, user, ApplicationStatus.ACTIVE);
+    return { message: 'Application activated successfully' };
+  }
+
+  async suspendApp(params, user) {
+    await this.updateAppStatus(params, user, ApplicationStatus.SUSPENDED);
+
+    return { message: 'Application suspended successfully' };
+  }
+
+  async getAppInfo(params, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    return application;
+  }
+
+  private async updateAppStatus(params, user, status: ApplicationStatus) {
+    const application = await this.applicationsRepository.getAllAppInfo({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const ownerMembership =
+      await this.applicationsRepository.getOwnerMembershipForApp({
+        applicationId: params.id,
+        userId: user.id,
+      });
+
+    if (!ownerMembership) {
+      throw new ForbiddenException(ERROR_KEYS.APP_STATUS_FORBIDDEN);
+    }
+
+    const updatedApplication =
+      await this.applicationsRepository.updateApplicationStatus({
+        applicationId: params.id,
+        status,
+      });
+
+    if (!updatedApplication) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    return updatedApplication;
+  }
 }

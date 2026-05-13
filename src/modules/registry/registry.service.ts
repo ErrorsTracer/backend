@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Applications } from '../../database/models/applications.model';
 import { Credentials } from '../../database/models/credentials.model';
 import { Errors } from '../../database/models/errors.model';
-import { Organizations } from '../../database/models/organizations.model';
+import { ERROR_KEYS } from '../../common/localization/error-keys';
 
 @Injectable()
 export class RegistryService {
@@ -12,8 +12,7 @@ export class RegistryService {
     private errorsRepository: typeof Errors,
     @InjectModel(Credentials)
     private credentialsRepository: typeof Credentials,
-    @InjectModel(Organizations)
-    private orgsRepository: typeof Organizations,
+
     @InjectModel(Applications)
     private appsRepository: typeof Applications,
   ) {}
@@ -21,28 +20,14 @@ export class RegistryService {
   async createReactError(data) {
     data.client = 'React';
 
-    // get organization by orgKey
-    const org = (
-      await this.credentialsRepository.findOne({
-        where: { appKey: data.credentials.orgKey },
-        include: [{ model: Applications }],
-      })
-    )?.toJSON();
-
     // check org validity
-    // if (!org) return { message: 'Organization key is invalid!' };
+    // if (!org) throw new BadRequestException(ERROR_KEYS.ORGANIZATION_KEY_INVALID);
     // if (!org.organization?.isActive)
-    //   return {
-    //     message: 'Organization associated with this key is not available!',
-    //   };
+    //   throw new BadRequestException(ERROR_KEYS.ORGANIZATION_UNAVAILABLE);
     // if (org.organization.isSuspended)
-    //   return {
-    //     message: 'Organization associated with this key is not available!',
-    //   };
+    //   throw new BadRequestException(ERROR_KEYS.ORGANIZATION_UNAVAILABLE);
     // if (org.organization.isDeleted)
-    //   return {
-    //     message: 'Organization associated with this key is not available!',
-    //   };
+    //   throw new BadRequestException(ERROR_KEYS.ORGANIZATION_UNAVAILABLE);
 
     // get app by appKey
     const app = (
@@ -53,42 +38,32 @@ export class RegistryService {
     )?.toJSON();
 
     // check app validity
-    if (!app) return { message: 'Application key is invalid!' };
-    if (!app.application?.isActive)
-      return {
-        message: 'Application associated with this key is not available!',
-      };
-    if (app.application.isSuspended)
-      return {
-        message: 'Application associated with this key is not available!',
-      };
-    if (app.application.isDeleted)
-      return {
-        message: 'Application associated with this key is not available!',
-      };
+    if (!app) throw new BadRequestException(ERROR_KEYS.APP_KEY_INVALID);
+    // if (!app.application?.isActive)
+    //   throw new BadRequestException(ERROR_KEYS.APP_UNAVAILABLE);
+    // if (app.application.isSuspended)
+    //   throw new BadRequestException(ERROR_KEYS.APP_UNAVAILABLE);
+    // if (app.application.isDeleted)
+    //   throw new BadRequestException(ERROR_KEYS.APP_UNAVAILABLE);
 
     // check if app belongs to the same org
 
     const appBelongsToOrg = (
       await this.appsRepository.findOne({
         where: {
-          id: app.application.id,
+          id: app.application?.id,
           // organization: { id: org.organization.id },
         },
-        include: [{ model: Applications }],
       })
     )?.toJSON();
 
     if (!appBelongsToOrg)
-      return {
-        message:
-          'Make sure the application is belongs to the same organization!',
-      };
+      throw new BadRequestException(ERROR_KEYS.APP_ORGANIZATION_MISMATCH);
 
-    // check if the credentials are dev or prod
+    // check if production mode is enabled
 
-    if (app.env === 'DEVELOPMENT')
-      return { message: 'You are using development credentials!' };
+    if (!app.isProductionEnabled)
+      throw new BadRequestException(ERROR_KEYS.APP_PRODUCTION_DISABLED);
 
     // check if the error is occurred before
     const happenedBefore = await this.errorsRepository.findAndCountAll({
@@ -98,13 +73,13 @@ export class RegistryService {
     // save error if credentials are prod
     await this.errorsRepository.create({
       error: data.error.error,
-      repeated: happenedBefore[1] + 1,
+      repeated: happenedBefore.count + 1,
       stack: data.error?.stack,
       href: data.error?.href,
       host: data.error?.host,
       clientAgent: data.error?.agent,
       clientPlatform: data.error?.platform,
-      application: app.application.id,
+      applicationId: app.application?.id,
       additionalData: data?.error?.additionalData || null,
     } as any);
 

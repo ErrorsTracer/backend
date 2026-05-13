@@ -1,5 +1,6 @@
 'use strict';
-const { v4 } = require('uuid');
+
+const REACT_APP_TYPE_ID = '11111111-1111-4111-8111-111111111111';
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
@@ -8,36 +9,33 @@ module.exports = {
       'application_types',
       [
         {
-          id: v4(),
+          id: REACT_APP_TYPE_ID,
           type: 'React',
           picture: 'react.png',
         },
-        {
-          id: v4(),
-          type: 'Node.js',
-          picture: 'nodejs.png',
-        },
-        {
-          id: v4(),
-          type: 'Angular',
-          picture: 'angular.png',
-        },
-        {
-          id: v4(),
-          type: 'Vue.js',
-          picture: 'vue.png',
-        },
+        // {
+        //   id: v4(),
+        //   type: 'Node.js',
+        //   picture: 'nodejs.png',
+        // },
+        // {
+        //   id: v4(),
+        //   type: 'Angular',
+        //   picture: 'angular.png',
+        // },
+        // {
+        //   id: v4(),
+        //   type: 'Vue.js',
+        //   picture: 'vue.png',
+        // },
       ],
       {},
     );
   },
 
   async down(queryInterface, Sequelize) {
-    /**
-     * Add commands to revert seed here.
-     *
-     * Example:
-     * await queryInterface.bulkDelete('People', null, {});
-     */
+    await queryInterface.bulkDelete('application_types', {
+      id: REACT_APP_TYPE_ID,
+    });
   },
 };

@@ -1,0 +1,28 @@
+export const ERROR_KEYS = {
+  APP_ALREADY_EXISTS: 'errors.app.alreadyExists',
+  APP_CREATE_FORBIDDEN: 'errors.app.createForbidden',
+  APP_DELETE_FORBIDDEN: 'errors.app.deleteForbidden',
+  APP_INVITE_FORBIDDEN: 'errors.app.inviteForbidden',
+  APP_KEY_INVALID: 'errors.app.keyInvalid',
+  APP_NOT_FOUND: 'errors.app.notFound',
+  APP_ORGANIZATION_MISMATCH: 'errors.app.organizationMismatch',
+  APP_PRODUCTION_DISABLED: 'errors.app.productionDisabled',
+  APP_STATUS_FORBIDDEN: 'errors.app.statusForbidden',
+  APP_UNAVAILABLE: 'errors.app.unavailable',
+  APP_TYPE_NOT_FOUND: 'errors.app.typeNotFound',
+  AUTH_REQUIRED: 'errors.auth.required',
+  CREDENTIAL_NOT_FOUND: 'errors.credential.notFound',
+  EMAIL_ALREADY_EXISTS: 'errors.auth.emailAlreadyExists',
+  INCORRECT_CREDENTIALS: 'errors.auth.incorrectCredentials',
+  INVALID_REFRESH_TOKEN: 'errors.auth.invalidRefreshToken',
+  INVALID_TOKEN: 'errors.auth.invalidToken',
+  INVALID_TOKEN_PAYLOAD: 'errors.auth.invalidTokenPayload',
+  NO_REFRESH_TOKEN: 'errors.auth.noRefreshToken',
+  NOTIFICATION_NOT_FOUND: 'errors.notification.notFound',
+  ORGANIZATION_KEY_INVALID: 'errors.organization.keyInvalid',
+  ORGANIZATION_UNAVAILABLE: 'errors.organization.unavailable',
+  USER_NOT_FOUND: 'errors.user.notFound',
+  VALIDATION_FAILED: 'errors.validation.failed',
+} as const;
+
+export type ErrorKey = (typeof ERROR_KEYS)[keyof typeof ERROR_KEYS];

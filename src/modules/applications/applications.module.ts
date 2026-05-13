@@ -5,11 +5,11 @@ import { ApplicationsService } from './applications.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { ApplicationTypes } from '../../database/models/application-types.model';
 import { Applications } from '../../database/models/applications.model';
-import { OrganizationMembership } from '../../database/models/organization-membership.model';
 import { Users } from '../../database/models/users.model';
 import { ApplicationMembership } from '../../database/models/application-membership.model';
 import { Credentials } from '../../database/models/credentials.model';
 import { Errors } from '../../database/models/errors.model';
+import { Notifications } from '../../database/models/notifications.model';
 import { TransactionManager } from '../../helpers/transaction.helper';
 import { ApplicationsRepository } from './applications.repo';
 
@@ -18,11 +18,11 @@ import { ApplicationsRepository } from './applications.repo';
     SequelizeModule.forFeature([
       ApplicationTypes,
       Applications,
-      OrganizationMembership,
       Users,
       ApplicationMembership,
       Credentials,
       Errors,
+      Notifications,
     ]),
   ],
   controllers: [ApplicationsController],

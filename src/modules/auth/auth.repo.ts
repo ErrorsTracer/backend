@@ -3,6 +3,12 @@ import { Users } from '../../database/models/users.model';
 import { InjectModel } from '@nestjs/sequelize';
 
 import { RefreshTokens } from '../../database/models/refresh-tokens.model';
+import {
+  AUTH_CONSTANTS,
+  RefreshTokenStatus,
+} from '../../common/constants/app.constants';
+
+type QueryOptions = { attributes: { include?: string[]; exclude?: string[] } };
 
 @Injectable()
 export class AuthRepository {
@@ -13,32 +19,39 @@ export class AuthRepository {
     private readonly refreshTokensRepository: typeof RefreshTokens,
   ) {}
 
-  async getUserByEmail(email: string) {
+  async getUserByEmail(email: string, queryOptions?: QueryOptions) {
     const user = await this.usersRepository.findOne({
       where: { email },
-      attributes: { exclude: ['createdAt', 'updatedAt'] },
+      attributes: {
+        include: queryOptions?.attributes.include || [],
+        exclude: queryOptions?.attributes.exclude || [],
+      },
     });
 
     return user?.toJSON();
   }
 
   async saveRefreshToken({
-    tokenId,
-    tokenHash,
+    refreshToken,
     userId,
   }: {
-    tokenId: string;
-    tokenHash: string;
+    refreshToken: string;
     userId: string;
   }) {
-    const refreshToken = await this.refreshTokensRepository.create({
-      id: tokenId,
-      tokenHash,
+    const result = await this.refreshTokensRepository.create({
+      hashedToken: refreshToken,
       userId,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+      expiresAt: new Date(Date.now() + AUTH_CONSTANTS.REFRESH_TOKEN_MAX_AGE_MS),
       isRevoked: false,
     } as any);
+    return result?.toJSON();
+  }
 
-    return refreshToken;
+  async findUserByRefreshToken(hashedToken: string) {
+    const refreshToken = await this.refreshTokensRepository.findOne({
+      where: { hashedToken, status: RefreshTokenStatus.ACTIVE },
+      include: [{ model: Users, attributes: ['id', 'email'] }],
+    });
+    return refreshToken?.toJSON();
   }
 }
