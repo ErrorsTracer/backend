@@ -141,7 +141,7 @@ bun install
 
 ## Environment Setup
 
-This backend expects environment variables for the application, PostgreSQL, and JWT secrets. There is no `.env.example` in this backend repository at the moment, so use the following as a starting point:
+This backend expects environment variables for the application, PostgreSQL, JWT secrets, and logging. Use `.env.example` as a starting point:
 
 ```bash
 # Application
@@ -159,6 +159,15 @@ DB_NAME=errortracer
 JWT_SECRET=replace-me
 ACCESS_TOKEN_SECRET=replace-me
 REFRESH_TOKEN_SECRET=replace-me
+
+# Logging
+LOG_LEVEL=info
+LOG_FORMAT=json
+LOG_TO_FILE=false
+LOG_DIR=logs
+LOG_ERROR_FILE=error.log
+LOG_MAX_SIZE=20m
+LOG_MAX_FILES=14d
 ```
 
 Create a local `.env` file:
@@ -168,6 +177,24 @@ cp .env.test .env
 ```
 
 Then adjust the values for your local database and secrets.
+
+### Logger Configuration
+
+Console logging is enabled by default and is the recommended path for Docker and cloud deployments. In local development, logs default to a readable pretty format when `LOG_FORMAT` is unset. In production, logs default to structured JSON when `LOG_FORMAT` is unset.
+
+| Variable         | Default                      | Description                                                                          |
+| ---------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
+| `LOG_LEVEL`      | `info`                       | Minimum log level: `debug`, `info`, `warn`, or `error`.                              |
+| `LOG_FORMAT`     | `pretty` locally, `json` prod | Console/file format: `pretty` or `json`.                                             |
+| `LOG_TO_FILE`    | `false`                      | Enables optional persistent file logging when set to `true`.                         |
+| `LOG_DIR`        | `logs`                       | Directory for persistent log files.                                                  |
+| `LOG_ERROR_FILE` | `error.log`                  | Base filename for persistent error logs.                                             |
+| `LOG_MAX_SIZE`   | `20m`                        | Rotates the error log before appending past this size. Supports `b`, `k`, `m`, `g`.   |
+| `LOG_MAX_FILES`  | `14d`                        | Retention for rotated files. Use a number for file count or `Nd` for days.            |
+
+When `LOG_TO_FILE=true`, only error-level entries are written to disk, the file is rotated by size, and old rotated files are removed according to `LOG_MAX_FILES`. File logging is off by default, including production, so containers do not append forever to a local file unless explicitly configured for self-hosted/on-prem deployments.
+
+All API logs include a request/correlation id. Incoming `x-request-id` is preferred, `x-correlation-id` is accepted, and both response headers are set to the resolved id. Sensitive values are redacted from structured log context, including authorization headers, cookies, passwords, access tokens, refresh tokens, and API keys.
 
 ## Docker Setup
 

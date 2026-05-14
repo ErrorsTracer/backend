@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { ApiLoggerService } from './api-logger.service';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
+export const CORRELATION_ID_HEADER = 'x-correlation-id';
 
 export type TrackedRequest = Request & {
   requestId?: string;
@@ -11,12 +12,15 @@ export type TrackedRequest = Request & {
 
 export function createRequestLoggingMiddleware(logger: ApiLoggerService) {
   return (request: TrackedRequest, response: Response, next: NextFunction) => {
-    const incomingRequestId = request.header(REQUEST_ID_HEADER);
+    const incomingRequestId =
+      request.header(REQUEST_ID_HEADER) ??
+      request.header(CORRELATION_ID_HEADER);
     const requestId = incomingRequestId?.trim() || randomUUID();
 
     request.requestId = requestId;
     request.requestStartedAt = process.hrtime.bigint();
     response.setHeader(REQUEST_ID_HEADER, requestId);
+    response.setHeader(CORRELATION_ID_HEADER, requestId);
 
     response.on('finish', () => {
       logger.logRequest({
