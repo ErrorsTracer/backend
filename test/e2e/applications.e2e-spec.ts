@@ -1,13 +1,13 @@
 import request from 'supertest';
-import { registerAndLogin } from './support/auth';
-import { resetTestData } from './support/db-reset';
-import { createE2eApp, E2eAppContext } from './support/e2e-app';
+import { registerAndLogin } from '../support/auth';
+import { resetTestData } from '../support/db-reset';
+import { createE2eApp, E2eAppContext } from '../support/e2e-app';
 import {
   createApplicationFixture,
   getReactAppTypeId,
   inviteUserToApplication,
-} from './support/fixtures';
-import { authHeader } from './support/http';
+} from '../support/fixtures';
+import { authHeader } from '../support/http';
 
 describe('Applications API (e2e)', () => {
   let context: E2eAppContext;
@@ -52,11 +52,9 @@ describe('Applications API (e2e)', () => {
     const application = await createApplicationFixture(context, owner);
 
     await request(context.httpServer)
-      .post('/v0.1/registry/react')
-      .send({
-        credentials: { appKey: application.appKey },
-        error: { error: 'ProductionDisabledSmoke' },
-      })
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', application.appKey)
+      .send({ projectId: application.id, message: 'ProductionDisabledSmoke' })
       .expect(400);
 
     await request(context.httpServer)

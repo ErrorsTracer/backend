@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RegistryController } from './registry.controller';
+import { ErrorsController } from './registry.controller';
 import { RegistryService } from './registry.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { Errors } from '../../database/models/errors.model';
@@ -8,7 +8,7 @@ import { Applications } from '../../database/models/applications.model';
 
 @Module({
   imports: [SequelizeModule.forFeature([Errors, Credentials, Applications])],
-  controllers: [RegistryController],
+  controllers: [ErrorsController],
   providers: [RegistryService],
 })
 export class RegistryModule {}

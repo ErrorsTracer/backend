@@ -55,9 +55,19 @@ export class ApiErrorBoundaryFilter implements ExceptionFilter {
   }
 
   private getStatus(exception: unknown) {
-    return exception instanceof HttpException
-      ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+    if (exception instanceof HttpException) {
+      return exception.getStatus();
+    }
+
+    if (this.hasHttpStatus(exception)) {
+      return (
+        exception.statusCode ??
+        exception.status ??
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    return HttpStatus.INTERNAL_SERVER_ERROR;
   }
 
   private localizeResponse(
@@ -73,7 +83,10 @@ export class ApiErrorBoundaryFilter implements ExceptionFilter {
     if (!(exception instanceof HttpException)) {
       return {
         ...meta,
-        message: 'Internal server error',
+        message:
+          this.hasHttpStatus(exception) && exception.message
+            ? exception.message
+            : 'Internal server error',
       };
     }
 
@@ -104,5 +117,23 @@ export class ApiErrorBoundaryFilter implements ExceptionFilter {
     }
 
     return this.localizationService.translate(message, locale);
+  }
+
+  private hasHttpStatus(
+    exception: unknown,
+  ): exception is { status?: number; statusCode?: number; message?: string } {
+    if (!exception || typeof exception !== 'object') {
+      return false;
+    }
+
+    const maybeException = exception as {
+      status?: unknown;
+      statusCode?: unknown;
+    };
+
+    return (
+      typeof maybeException.status === 'number' ||
+      typeof maybeException.statusCode === 'number'
+    );
   }
 }

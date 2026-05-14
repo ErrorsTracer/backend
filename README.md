@@ -437,6 +437,95 @@ Published API documentation:
 
 - [https://www.postman.com/errorstracer/backend](https://www.postman.com/errorstracer/backend)
 
+### Generic Error Ingestion
+
+Client SDKs and custom applications can send framework-agnostic error events to:
+
+```http
+POST /v0.1/errors/ingest
+X-ErrorTracer-Key: <application-app-key>
+Content-Type: application/json
+```
+
+The key is the application credential key returned by the application credentials API. If `projectId` is included, it must match the application associated with the key.
+
+Minimal payload:
+
+```json
+{
+  "projectId": "application-uuid",
+  "message": "Unhandled TypeError"
+}
+```
+
+React/browser payload:
+
+```json
+{
+  "projectId": "application-uuid",
+  "environment": "production",
+  "framework": "react",
+  "language": "typescript",
+  "runtime": "browser",
+  "level": "error",
+  "message": "Unhandled TypeError: Cannot read properties of undefined",
+  "name": "TypeError",
+  "stack": "TypeError\n    at BillingPage (https://example.com/app.js:10:20)",
+  "handled": false,
+  "release": "1.2.3",
+  "url": "https://example.com/dashboard",
+  "transaction": "GET /dashboard",
+  "tags": { "region": "us-east-1", "feature": "billing" },
+  "extra": { "component": "BillingPage" }
+}
+```
+
+Laravel/server payload:
+
+```json
+{
+  "projectId": "application-uuid",
+  "framework": "laravel",
+  "language": "php",
+  "runtime": "server",
+  "level": "fatal",
+  "message": "SQLSTATE[42S02]: Base table or view not found",
+  "name": "Illuminate\\Database\\QueryException",
+  "stack": "#0 /var/www/app/Http/Controllers/BillingController.php(42)",
+  "transaction": "POST /billing/checkout",
+  "serverName": "web-1",
+  "request": {
+    "method": "POST",
+    "url": "/billing/checkout",
+    "headers": { "host": "example.com" }
+  }
+}
+```
+
+Success response:
+
+```json
+{
+  "id": "generated-error-event-id",
+  "status": "accepted"
+}
+```
+
+Defaults: `level` defaults to `error`, `environment` defaults to `production`, and `timestamp` defaults to server time. When `fingerprint` is omitted, the backend generates a deterministic fingerprint from normalized project, environment, error identity, stack location, framework, and runtime values.
+
+Common error responses:
+
+| Status | Cause |
+| ------ | ----- |
+| `400`  | Invalid payload, disabled production credential, or validation failure |
+| `401`  | Missing or invalid `X-ErrorTracer-Key` |
+| `403`  | `projectId` does not belong to the provided key |
+| `413`  | JSON payload exceeds the configured request body size limit |
+
+Sensitive keys are redacted recursively before persistence, including authorization, cookie, password, token, accessToken, refreshToken, apiKey, and secret.
+
+The previous `POST /v0.1/registry/react` endpoint is retained only as a deprecated compatibility route. New clients should use `POST /v0.1/errors/ingest` and pass framework-specific details through generic payload fields.
+
 ## CI/CD Notes
 
 Recommended CI sequence:

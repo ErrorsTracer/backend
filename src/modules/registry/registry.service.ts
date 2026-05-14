@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Applications } from '../../database/models/applications.model';
 import { Credentials } from '../../database/models/credentials.model';
 import { Errors } from '../../database/models/errors.model';
 import { ERROR_KEYS } from '../../common/localization/error-keys';
+import { IngestErrorDto } from './registry.dto';
+import { generateErrorFingerprint, sanitizeValue } from './registry.utils';
 
 @Injectable()
 export class RegistryService {
@@ -12,77 +19,74 @@ export class RegistryService {
     private errorsRepository: typeof Errors,
     @InjectModel(Credentials)
     private credentialsRepository: typeof Credentials,
-
-    @InjectModel(Applications)
-    private appsRepository: typeof Applications,
   ) {}
 
-  async createReactError(data) {
-    data.client = 'React';
+  async ingestError(data: IngestErrorDto, ingestionKey?: string) {
+    if (!ingestionKey) {
+      throw new UnauthorizedException(ERROR_KEYS.AUTH_REQUIRED);
+    }
 
-    // check org validity
-    // if (!org) throw new BadRequestException(ERROR_KEYS.ORGANIZATION_KEY_INVALID);
-    // if (!org.organization?.isActive)
-    //   throw new BadRequestException(ERROR_KEYS.ORGANIZATION_UNAVAILABLE);
-    // if (org.organization.isSuspended)
-    //   throw new BadRequestException(ERROR_KEYS.ORGANIZATION_UNAVAILABLE);
-    // if (org.organization.isDeleted)
-    //   throw new BadRequestException(ERROR_KEYS.ORGANIZATION_UNAVAILABLE);
-
-    // get app by appKey
-    const app = (
-      await this.credentialsRepository.findOne({
-        where: { appKey: data.credentials.appKey },
-        include: [{ model: Applications }],
-      })
-    )?.toJSON();
-
-    // check app validity
-    if (!app) throw new BadRequestException(ERROR_KEYS.APP_KEY_INVALID);
-    // if (!app.application?.isActive)
-    //   throw new BadRequestException(ERROR_KEYS.APP_UNAVAILABLE);
-    // if (app.application.isSuspended)
-    //   throw new BadRequestException(ERROR_KEYS.APP_UNAVAILABLE);
-    // if (app.application.isDeleted)
-    //   throw new BadRequestException(ERROR_KEYS.APP_UNAVAILABLE);
-
-    // check if app belongs to the same org
-
-    const appBelongsToOrg = (
-      await this.appsRepository.findOne({
-        where: {
-          id: app.application?.id,
-          // organization: { id: org.organization.id },
-        },
-      })
-    )?.toJSON();
-
-    if (!appBelongsToOrg)
-      throw new BadRequestException(ERROR_KEYS.APP_ORGANIZATION_MISMATCH);
-
-    // check if production mode is enabled
-
-    if (!app.isProductionEnabled)
-      throw new BadRequestException(ERROR_KEYS.APP_PRODUCTION_DISABLED);
-
-    // check if the error is occurred before
-    const happenedBefore = await this.errorsRepository.findAndCountAll({
-      where: { error: data.error.error },
+    const credential = await this.credentialsRepository.findOne({
+      where: { appKey: ingestionKey },
+      include: [{ model: Applications }],
     });
 
-    // save error if credentials are prod
-    await this.errorsRepository.create({
-      error: data.error.error,
-      repeated: happenedBefore.count + 1,
-      stack: data.error?.stack,
-      href: data.error?.href,
-      host: data.error?.host,
-      clientAgent: data.error?.agent,
-      clientPlatform: data.error?.platform,
-      applicationId: app.application?.id,
-      additionalData: data?.error?.additionalData || null,
+    if (!credential) {
+      throw new UnauthorizedException(ERROR_KEYS.APP_KEY_INVALID);
+    }
+
+    const applicationId = credential.applicationId;
+
+    if (data.projectId && data.projectId !== applicationId) {
+      throw new ForbiddenException(ERROR_KEYS.APP_ORGANIZATION_MISMATCH);
+    }
+
+    if (!credential.isProductionEnabled) {
+      throw new BadRequestException(ERROR_KEYS.APP_PRODUCTION_DISABLED);
+    }
+
+    const environment = data.environment ?? 'production';
+    const level = data.level ?? 'error';
+    const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
+    const fingerprint =
+      data.fingerprint ??
+      generateErrorFingerprint(data, applicationId, environment);
+
+    const event = await this.errorsRepository.create({
+      applicationId,
+      error: data.message,
+      stack: data.stack ?? null,
+      environment,
+      framework: data.framework ?? null,
+      language: data.language ?? null,
+      runtime: data.runtime ?? null,
+      level,
+      name: data.name ?? null,
+      fingerprint,
+      handled: data.handled ?? null,
+      timestamp,
+      release: data.release ?? null,
+      url: data.url ?? null,
+      transaction: data.transaction ?? null,
+      user: sanitizeValue(data.user) as Record<string, unknown> | null,
+      request: sanitizeValue(data.request) as Record<string, unknown> | null,
+      tags: sanitizeValue(data.tags) as Record<string, unknown> | null,
+      extra: sanitizeValue({
+        ...(data.extra ?? {}),
+        ...(data.serverName ? { serverName: data.serverName } : {}),
+      }) as Record<string, unknown>,
+      breadcrumbs: sanitizeValue(data.breadcrumbs) as
+        | Record<string, unknown>[]
+        | null,
+      contexts: sanitizeValue(data.contexts) as Record<string, unknown> | null,
+      href: data.url ?? null,
+      client: data.framework ?? null,
+      additionalData: null,
     } as any);
 
-    return { message: 'Error registry created!' };
+    return {
+      id: event.id,
+      status: 'accepted',
+    };
   }
 }

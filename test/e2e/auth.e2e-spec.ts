@@ -1,7 +1,7 @@
 import request from 'supertest';
-import { registerAndLogin } from './support/auth';
-import { createE2eApp, E2eAppContext } from './support/e2e-app';
-import { resetTestData } from './support/db-reset';
+import { registerAndLogin } from '../support/auth';
+import { createE2eApp, E2eAppContext } from '../support/e2e-app';
+import { resetTestData } from '../support/db-reset';
 
 describe('Auth API (e2e)', () => {
   let context: E2eAppContext;

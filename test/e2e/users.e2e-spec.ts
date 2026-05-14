@@ -1,12 +1,12 @@
 import request from 'supertest';
-import { registerAndLogin } from './support/auth';
-import { resetTestData } from './support/db-reset';
-import { createE2eApp, E2eAppContext } from './support/e2e-app';
+import { registerAndLogin } from '../support/auth';
+import { resetTestData } from '../support/db-reset';
+import { createE2eApp, E2eAppContext } from '../support/e2e-app';
 import {
   createApplicationFixture,
   inviteUserToApplication,
-} from './support/fixtures';
-import { authHeader } from './support/http';
+} from '../support/fixtures';
+import { authHeader } from '../support/http';
 
 describe('Users API (e2e)', () => {
   let context: E2eAppContext;
