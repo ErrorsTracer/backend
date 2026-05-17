@@ -431,6 +431,22 @@ docker info
 bun run test:e2e
 ```
 
+Install the local pre-push hook:
+
+```bash
+bun run hooks:install
+```
+
+The hook runs the same push verification sequence used by CI:
+
+```bash
+bunx tsc --noEmit
+bun run lint
+bun run test:e2e
+```
+
+The e2e command starts PostgreSQL automatically through Testcontainers and stops it in Jest global teardown, including failed test runs. Redis is not required by the current e2e setup. Developers can bypass local hooks with `git push --no-verify`, so protected branches must rely on GitHub Actions as the source of truth.
+
 ## API Documentation
 
 Published API documentation:
@@ -534,11 +550,10 @@ Recommended CI sequence:
 bun install --frozen-lockfile
 bunx tsc --noEmit
 bun run lint
-bun run test
-bun run test:api:ci
+bun run test:e2e
 ```
 
-CI runners must provide Docker access for Testcontainers.
+The repository includes `.github/workflows/ci.yml`, which runs this sequence on `push` and `pull_request`. CI runners must provide Docker access for Testcontainers.
 
 Notes:
 
@@ -546,6 +561,8 @@ Notes:
 - E2E tests create an isolated PostgreSQL container automatically.
 - The container is removed during Jest global teardown.
 - Keep migrations and seeders deterministic so CI remains repeatable.
+- Configure branch protection to require the `CI / Typecheck, lint, and e2e` workflow before merging into protected branches.
+- Local Git hooks are useful feedback, but they are not a security boundary because they can be bypassed with `--no-verify`.
 
 ## Deployment Notes
 

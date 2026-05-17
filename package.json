@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "test:api": "jest --config ./test/jest-e2e.json --runInBand",
     "test:api:ci": "jest --config ./test/jest-e2e.json --runInBand --ci",
+    "hooks:install": "bun scripts/install-hooks.ts",
     "db:test:migrate": "ts-node --project tsconfig.json test/support/db-migrate.ts",
     "db:test:seed": "ts-node --project tsconfig.json test/support/db-seed.ts",
     "db:seed:generate": "sequelize-cli seed:generate --name",

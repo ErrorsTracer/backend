@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+echo "Running pre-push verification..."
+echo "Docker must be running so Testcontainers can start PostgreSQL for e2e tests."
+
+bunx tsc --noEmit
+bun run lint
+bun run test:e2e
+
+echo "Pre-push verification passed."
