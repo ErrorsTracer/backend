@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { IngestErrorDto } from './registry.dto';
+import { IngestErrorDto } from './errors.dto';
 
 const SENSITIVE_KEYS = new Set([
   'authorization',

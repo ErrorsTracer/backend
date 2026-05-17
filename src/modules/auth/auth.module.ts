@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Users } from '../../database/models/users.model';
 import { AuthRepository } from './auth.repo';
 import { RefreshTokens } from '../../database/models/refresh-tokens.model';
+import { RefreshTokenGuard } from './refresh-token.guard';
 
 @Module({
   imports: [
@@ -19,6 +20,6 @@ import { RefreshTokens } from '../../database/models/refresh-tokens.model';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthRepository],
+  providers: [AuthService, AuthRepository, RefreshTokenGuard],
 })
 export class AuthModule {}

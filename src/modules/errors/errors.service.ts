@@ -9,11 +9,11 @@ import { Applications } from '../../database/models/applications.model';
 import { Credentials } from '../../database/models/credentials.model';
 import { Errors } from '../../database/models/errors.model';
 import { ERROR_KEYS } from '../../common/localization/error-keys';
-import { IngestErrorDto } from './registry.dto';
-import { generateErrorFingerprint, sanitizeValue } from './registry.utils';
+import { IngestErrorDto } from './errors.dto';
+import { generateErrorFingerprint, sanitizeValue } from './errors.utils';
 
 @Injectable()
-export class RegistryService {
+export class ErrorsService {
   constructor(
     @InjectModel(Errors)
     private errorsRepository: typeof Errors,

@@ -1,4 +1,4 @@
-import { generateErrorFingerprint, sanitizeValue } from './registry.utils';
+import { generateErrorFingerprint, sanitizeValue } from './errors.utils';
 
 describe('registry utils', () => {
   it('redacts sensitive fields recursively', () => {

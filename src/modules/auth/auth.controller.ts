@@ -1,16 +1,18 @@
 import {
   Body,
   Controller,
+  HttpCode,
   Post,
   Req,
   Res,
-  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateAccountDto, LoginDto } from './auth.dto';
-import type { Response, Request } from 'express';
-import { ERROR_KEYS } from '../../common/localization/error-keys';
+import type { Response } from 'express';
 import { AUTH_CONSTANTS } from '../../common/constants/app.constants';
+import { RefreshTokenGuard } from './refresh-token.guard';
+import type { RefreshTokenRequest } from './auth.types';
 
 @Controller({ path: 'auth', version: '0.1' })
 export class AuthController {
@@ -40,13 +42,24 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(@Req() req: Request) {
-    const refreshToken = req.cookies[AUTH_CONSTANTS.REFRESH_TOKEN_COOKIE_NAME];
+  @UseGuards(RefreshTokenGuard)
+  async refresh(@Req() req: RefreshTokenRequest) {
+    return await this.authService.validateRefreshToken(req.refreshToken!);
+  }
 
-    if (!refreshToken) {
-      throw new UnauthorizedException(ERROR_KEYS.NO_REFRESH_TOKEN);
-    }
+  @Post('logout')
+  @HttpCode(204)
+  @UseGuards(RefreshTokenGuard)
+  async logout(
+    @Req() req: RefreshTokenRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.logout(req.refreshToken!);
 
-    return await this.authService.validateRefreshToken(refreshToken);
+    res.clearCookie(AUTH_CONSTANTS.REFRESH_TOKEN_COOKIE_NAME, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+    });
   }
 }

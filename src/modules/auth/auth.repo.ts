@@ -54,4 +54,18 @@ export class AuthRepository {
     });
     return refreshToken?.toJSON();
   }
+
+  async revokeRefreshToken(hashedToken: string) {
+    const [affectedCount] = await this.refreshTokensRepository.update(
+      { status: RefreshTokenStatus.REVOKED },
+      {
+        where: {
+          hashedToken,
+          status: RefreshTokenStatus.ACTIVE,
+        },
+      },
+    );
+
+    return affectedCount > 0;
+  }
 }

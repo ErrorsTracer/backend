@@ -139,4 +139,25 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
     }
   }
+
+  async logout(refreshToken: string) {
+    try {
+      this.jwtService.verify(refreshToken, {
+        secret: process.env.REFRESH_TOKEN_SECRET,
+      });
+
+      const hashedRefreshToken = createHash('sha256')
+        .update(refreshToken)
+        .digest('hex');
+
+      const revoked =
+        await this.authRepository.revokeRefreshToken(hashedRefreshToken);
+
+      if (!revoked) {
+        throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
+      }
+    } catch {
+      throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
+    }
+  }
 }
