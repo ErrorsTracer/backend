@@ -431,21 +431,20 @@ docker info
 bun run test:e2e
 ```
 
-Install the local pre-push hook:
+Install the local Git hooks:
 
 ```bash
 bun run hooks:install
 ```
 
-The hook runs the same push verification sequence used by CI:
+The pre-commit hook runs:
 
 ```bash
-bunx tsc --noEmit
 bun run lint
 bun run test:e2e
 ```
 
-The e2e command starts PostgreSQL automatically through Testcontainers and stops it in Jest global teardown, including failed test runs. Redis is not required by the current e2e setup. Developers can bypass local hooks with `git push --no-verify`, so protected branches must rely on GitHub Actions as the source of truth.
+The e2e command starts PostgreSQL automatically through Testcontainers and stops it in Jest global teardown, including failed test runs. Redis is not required by the current e2e setup. Developers can bypass local hooks with `git commit --no-verify`, so protected branches must rely on GitHub Actions as the source of truth.
 
 ## API Documentation
 
@@ -630,8 +629,9 @@ Suggested workflow:
 1. Fork the repository.
 2. Create a feature branch.
 3. Install dependencies with `bun install`.
-4. Make focused changes with tests.
-5. Run:
+4. Install local Git hooks with `bun run hooks:install`.
+5. Make focused changes with tests.
+6. Run:
 
 ```bash
 bunx tsc --noEmit
@@ -640,7 +640,7 @@ bun run test
 bun run test:e2e
 ```
 
-6. Open a pull request with a clear summary and testing notes.
+7. Open a pull request with a clear summary and testing notes.
 
 Please keep changes scoped, deterministic, and compatible with self-hosted deployments.
 
