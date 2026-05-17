@@ -5,9 +5,10 @@ import { Users } from '../../database/models/users.model';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repo';
 import { UsersService } from './users.service';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Users, Notifications])],
+  imports: [SequelizeModule.forFeature([Users, Notifications]), AuthModule],
   controllers: [UsersController],
   providers: [UsersService, UsersRepository],
 })

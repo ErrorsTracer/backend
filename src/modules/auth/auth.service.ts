@@ -10,9 +10,10 @@ import { JwtService } from '@nestjs/jwt';
 import { CreateAccountDto } from './auth.dto';
 import { AuthRepository } from './auth.repo';
 
-import { createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import { ERROR_KEYS } from '../../common/localization/error-keys';
 import { AUTH_CONSTANTS } from '../../common/constants/app.constants';
+import { AuthSessionRecord } from './auth.types';
 
 @Injectable()
 export class AuthService {
@@ -61,24 +62,31 @@ export class AuthService {
       if (!data.password)
         throw new UnauthorizedException(ERROR_KEYS.INCORRECT_CREDENTIALS);
 
-      const jwtPayload = { id: user.id, email: user.email };
+      const sessionId = randomUUID();
+      const jwtPayload = {
+        sub: user.id,
+        id: user.id,
+        email: user.email,
+        sessionId,
+      };
 
-      const accessToken = await this.jwtService.signAsync(jwtPayload, {
-        secret: process.env.ACCESS_TOKEN_SECRET,
-        expiresIn: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRES_IN,
-      });
+      const accessToken = await this.signAccessToken(jwtPayload);
 
       const refreshToken = await this.jwtService.signAsync(
-        { sub: user.id },
+        { sub: user.id, sessionId, type: 'refresh' },
         {
           secret: process.env.REFRESH_TOKEN_SECRET,
           expiresIn: AUTH_CONSTANTS.REFRESH_TOKEN_EXPIRES_IN,
         },
       );
 
-      await this.authRepository.saveRefreshToken({
-        refreshToken: refreshToken,
+      await this.authRepository.createSession({
+        id: sessionId,
         userId: user.id,
+        refreshToken,
+        expiresAt: new Date(
+          Date.now() + AUTH_CONSTANTS.REFRESH_TOKEN_MAX_AGE_MS,
+        ),
       });
 
       return {
@@ -90,74 +98,37 @@ export class AuthService {
     }
   }
 
-  async validateRefreshToken(refreshToken: string) {
-    try {
-      const payload = this.jwtService.verify(refreshToken, {
-        secret: process.env.REFRESH_TOKEN_SECRET,
-      });
+  async validateRefreshToken(session: AuthSessionRecord) {
+    const accessToken = await this.signAccessToken({
+      sub: session.userId,
+      id: session.userId,
+      email: session.user?.email,
+      sessionId: session.id,
+    });
 
-      const hashedRefreshToken = createHash('sha256')
-        .update(refreshToken)
-        .digest('hex');
+    return { accessToken };
+  }
 
-      const user =
-        await this.authRepository.findUserByRefreshToken(hashedRefreshToken);
+  async logout(session: AuthSessionRecord) {
+    const revoked = await this.authRepository.revokeSession(session.id);
 
-      if (!user) {
-        throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
-      }
-      // console.log(
-      //   'User found for refresh token:',
-      //   user.hashedToken === hashedRefreshToken,
-      // );
-
-      const newAccessToken = this.jwtService.sign(
-        { sub: payload.sub, email: payload.email },
-        {
-          secret: process.env.ACCESS_TOKEN_SECRET,
-          expiresIn: AUTH_CONSTANTS.REFRESH_ACCESS_TOKEN_EXPIRES_IN,
-        },
-      );
-
-      // const newRefreshToken = this.jwtService.sign(
-      //   { sub: payload.sub },
-      //   {
-      //     secret: process.env.REFRESH_TOKEN_SECRET,
-      //     expiresIn: AUTH_CONSTANTS.ROTATED_REFRESH_TOKEN_EXPIRES_IN,
-      //   },
-      // );
-
-      //   await this.authRepository.saveRefreshToken({
-      //   refreshToken: newRefreshToken,
-      //   userId: payload.sub,
-      // });
-
-      return {
-        accessToken: newAccessToken,
-      };
-    } catch {
+    if (!revoked) {
       throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
     }
   }
 
-  async logout(refreshToken: string) {
-    try {
-      this.jwtService.verify(refreshToken, {
-        secret: process.env.REFRESH_TOKEN_SECRET,
-      });
-
-      const hashedRefreshToken = createHash('sha256')
-        .update(refreshToken)
-        .digest('hex');
-
-      const revoked =
-        await this.authRepository.revokeRefreshToken(hashedRefreshToken);
-
-      if (!revoked) {
-        throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
-      }
-    } catch {
-      throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
-    }
+  private async signAccessToken(payload: {
+    sub: string;
+    id: string;
+    email?: string;
+    sessionId: string;
+  }) {
+    return await this.jwtService.signAsync(
+      { ...payload, type: 'access' },
+      {
+        secret: process.env.ACCESS_TOKEN_SECRET,
+        expiresIn: AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRES_IN,
+      },
+    );
   }
 }

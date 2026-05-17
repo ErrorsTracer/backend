@@ -1,0 +1,52 @@
+'use strict';
+
+/** @type {import('sequelize-cli').Migration} */
+module.exports = {
+  async up(queryInterface, Sequelize) {
+    await queryInterface.createTable('auth_sessions', {
+      id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        primaryKey: true,
+        defaultValue: Sequelize.UUIDV4,
+      },
+      userId: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: 'users',
+          key: 'id',
+        },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
+      refreshTokenHash: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        unique: true,
+      },
+      revokedAt: {
+        type: Sequelize.DATE,
+        allowNull: true,
+      },
+      expiresAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+      },
+      createdAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+      },
+    });
+
+    await queryInterface.addIndex('auth_sessions', ['userId']);
+  },
+
+  async down(queryInterface) {
+    await queryInterface.dropTable('auth_sessions');
+  },
+};

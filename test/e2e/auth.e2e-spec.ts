@@ -1,4 +1,8 @@
 import request from 'supertest';
+import { randomUUID } from 'crypto';
+import { JwtService } from '@nestjs/jwt';
+import { getModelToken } from '@nestjs/sequelize';
+import { AuthSessions } from '../../src/database/models/auth-sessions.model';
 import { registerAndLogin } from '../support/auth';
 import { createE2eApp, E2eAppContext } from '../support/e2e-app';
 import { resetTestData } from '../support/db-reset';
@@ -6,9 +10,13 @@ import { authHeader } from '../support/http';
 
 describe('Auth API (e2e)', () => {
   let context: E2eAppContext;
+  let jwtService: JwtService;
+  let authSessionsRepository: typeof AuthSessions;
 
   beforeAll(async () => {
     context = await createE2eApp();
+    jwtService = context.app.get(JwtService);
+    authSessionsRepository = context.app.get(getModelToken(AuthSessions));
   });
 
   beforeEach(async () => {
@@ -66,6 +74,7 @@ describe('Auth API (e2e)', () => {
 
   it('requires access tokens for protected API endpoints', async () => {
     const owner = await registerAndLogin(context.httpServer, 'owner');
+    const refreshToken = extractRefreshToken(owner.cookie);
 
     await request(context.httpServer).get('/v0.1/users/profile').expect(401);
 
@@ -81,21 +90,86 @@ describe('Auth API (e2e)', () => {
 
     await request(context.httpServer)
       .get('/v0.1/users/profile')
+      .set(authHeader(refreshToken))
+      .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/profile')
       .set(authHeader(owner.accessToken))
       .expect(200);
   });
 
   it('rejects revoked refresh tokens after logout', async () => {
     const owner = await registerAndLogin(context.httpServer, 'owner');
+    const payload = jwtService.decode(owner.accessToken);
+
+    expect(payload.sessionId).toEqual(expect.any(String));
 
     await request(context.httpServer)
       .post('/v0.1/auth/logout')
       .set('Cookie', owner.cookie)
       .expect(204);
 
+    const session = await authSessionsRepository.findByPk(payload.sessionId);
+    expect(session?.revokedAt).toBeInstanceOf(Date);
+
     await request(context.httpServer)
       .post('/v0.1/auth/refresh')
       .set('Cookie', owner.cookie)
       .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/profile')
+      .set(authHeader(owner.accessToken))
+      .expect(401);
+  });
+
+  it('rejects access tokens with missing or invalid session ids', async () => {
+    const owner = await registerAndLogin(context.httpServer, 'owner');
+
+    const missingSessionIdToken = await jwtService.signAsync(
+      { sub: 'missing-session-user', type: 'access' },
+      {
+        secret: process.env.ACCESS_TOKEN_SECRET,
+        expiresIn: '10m',
+      },
+    );
+    const invalidSessionIdToken = await jwtService.signAsync(
+      {
+        sub: 'missing-session-user',
+        sessionId: randomUUID(),
+        type: 'access',
+      },
+      {
+        secret: process.env.ACCESS_TOKEN_SECRET,
+        expiresIn: '10m',
+      },
+    );
+
+    await request(context.httpServer)
+      .get('/v0.1/users/profile')
+      .set(authHeader(owner.accessToken))
+      .expect(200);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/profile')
+      .set(authHeader(missingSessionIdToken))
+      .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/profile')
+      .set(authHeader(invalidSessionIdToken))
+      .expect(401);
   });
 });
+
+function extractRefreshToken(cookies: string[]) {
+  const cookie = cookies.find((value) => value.startsWith('refresh_token='));
+  const match = cookie?.match(/^refresh_token=([^;]+)/);
+
+  if (!match) {
+    throw new Error('Expected refresh token cookie');
+  }
+
+  return match[1];
+}

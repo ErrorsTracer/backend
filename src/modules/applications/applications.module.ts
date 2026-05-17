@@ -12,6 +12,7 @@ import { Errors } from '../../database/models/errors.model';
 import { Notifications } from '../../database/models/notifications.model';
 import { TransactionManager } from '../../helpers/transaction.helper';
 import { ApplicationsRepository } from './applications.repo';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ApplicationsRepository } from './applications.repo';
       Errors,
       Notifications,
     ]),
+    AuthModule,
   ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService, TransactionManager, ApplicationsRepository],

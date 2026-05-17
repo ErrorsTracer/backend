@@ -44,7 +44,7 @@ export class AuthController {
   @Post('refresh')
   @UseGuards(RefreshTokenGuard)
   async refresh(@Req() req: RefreshTokenRequest) {
-    return await this.authService.validateRefreshToken(req.refreshToken!);
+    return await this.authService.validateRefreshToken(req.session!);
   }
 
   @Post('logout')
@@ -54,7 +54,7 @@ export class AuthController {
     @Req() req: RefreshTokenRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.authService.logout(req.refreshToken!);
+    await this.authService.logout(req.session!);
 
     res.clearCookie(AUTH_CONSTANTS.REFRESH_TOKEN_COOKIE_NAME, {
       httpOnly: true,

@@ -8,11 +8,16 @@ import { JwtService } from '@nestjs/jwt';
 
 import { AUTH_CONSTANTS } from '../../common/constants/app.constants';
 import { ERROR_KEYS } from '../../common/localization/error-keys';
-import { RefreshTokenRequest } from './auth.types';
+import { AuthSessions } from '../../database/models/auth-sessions.model';
+import { AuthRepository } from './auth.repo';
+import { RefreshTokenPayload, RefreshTokenRequest } from './auth.types';
 
 @Injectable()
 export class RefreshTokenGuard implements CanActivate {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private authRepository: AuthRepository,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RefreshTokenRequest>();
@@ -22,16 +27,40 @@ export class RefreshTokenGuard implements CanActivate {
       throw new UnauthorizedException(ERROR_KEYS.NO_REFRESH_TOKEN);
     }
 
-    try {
-      await this.jwtService.verifyAsync(refreshToken, {
-        secret: process.env.REFRESH_TOKEN_SECRET,
-      });
+    let payload: RefreshTokenPayload;
 
-      request.refreshToken = refreshToken;
-      return true;
+    try {
+      payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
+        refreshToken,
+        {
+          secret: process.env.REFRESH_TOKEN_SECRET,
+        },
+      );
     } catch {
       throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
     }
+
+    if (payload.type !== 'refresh' || !payload.sessionId) {
+      throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
+    }
+
+    const session = await this.authRepository.findSessionById(
+      payload.sessionId,
+    );
+
+    if (
+      !session ||
+      session.revokedAt ||
+      new Date(session.expiresAt) <= new Date() ||
+      session.refreshTokenHash !== AuthSessions.hashRefreshToken(refreshToken)
+    ) {
+      throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
+    }
+
+    request.refreshToken = refreshToken;
+    request.refreshTokenPayload = payload;
+    request.session = session;
+    return true;
   }
 
   private extractRefreshTokenFromCookies(

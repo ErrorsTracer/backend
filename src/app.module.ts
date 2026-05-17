@@ -1,9 +1,9 @@
-import { RefreshTokens } from './database/models/refresh-tokens.model';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { AuthSessions } from './database/models/auth-sessions.model';
 import { Users } from './database/models/users.model';
 import { Applications } from './database/models/applications.model';
 import { ApplicationTypes } from './database/models/application-types.model';
@@ -35,7 +35,7 @@ import { UsersModule } from './modules/users/users.module';
         Credentials,
         Notifications,
         Errors,
-        RefreshTokens,
+        AuthSessions,
       ],
       logging: false,
       autoLoadModels: true,

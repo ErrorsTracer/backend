@@ -2,21 +2,23 @@ import { Injectable } from '@nestjs/common';
 import { Users } from '../../database/models/users.model';
 import { InjectModel } from '@nestjs/sequelize';
 
-import { RefreshTokens } from '../../database/models/refresh-tokens.model';
-import {
-  AUTH_CONSTANTS,
-  RefreshTokenStatus,
-} from '../../common/constants/app.constants';
+import { AuthSessions } from '../../database/models/auth-sessions.model';
 
 type QueryOptions = { attributes: { include?: string[]; exclude?: string[] } };
+type CreateSessionInput = {
+  id: string;
+  userId: string;
+  refreshToken: string;
+  expiresAt: Date;
+};
 
 @Injectable()
 export class AuthRepository {
   constructor(
     @InjectModel(Users)
     private readonly usersRepository: typeof Users,
-    @InjectModel(RefreshTokens)
-    private readonly refreshTokensRepository: typeof RefreshTokens,
+    @InjectModel(AuthSessions)
+    private readonly authSessionsRepository: typeof AuthSessions,
   ) {}
 
   async getUserByEmail(email: string, queryOptions?: QueryOptions) {
@@ -31,37 +33,38 @@ export class AuthRepository {
     return user?.toJSON();
   }
 
-  async saveRefreshToken({
-    refreshToken,
+  async createSession({
+    id,
     userId,
-  }: {
-    refreshToken: string;
-    userId: string;
-  }) {
-    const result = await this.refreshTokensRepository.create({
-      hashedToken: refreshToken,
+    refreshToken,
+    expiresAt,
+  }: CreateSessionInput) {
+    const result = await this.authSessionsRepository.create({
+      id,
       userId,
-      expiresAt: new Date(Date.now() + AUTH_CONSTANTS.REFRESH_TOKEN_MAX_AGE_MS),
-      isRevoked: false,
+      refreshTokenHash: AuthSessions.hashRefreshToken(refreshToken),
+      revokedAt: null,
+      expiresAt,
     } as any);
+
     return result?.toJSON();
   }
 
-  async findUserByRefreshToken(hashedToken: string) {
-    const refreshToken = await this.refreshTokensRepository.findOne({
-      where: { hashedToken, status: RefreshTokenStatus.ACTIVE },
+  async findSessionById(sessionId: string) {
+    const session = await this.authSessionsRepository.findByPk(sessionId, {
       include: [{ model: Users, attributes: ['id', 'email'] }],
     });
-    return refreshToken?.toJSON();
+
+    return session?.toJSON();
   }
 
-  async revokeRefreshToken(hashedToken: string) {
-    const [affectedCount] = await this.refreshTokensRepository.update(
-      { status: RefreshTokenStatus.REVOKED },
+  async revokeSession(sessionId: string) {
+    const [affectedCount] = await this.authSessionsRepository.update(
+      { revokedAt: new Date() },
       {
         where: {
-          hashedToken,
-          status: RefreshTokenStatus.ACTIVE,
+          id: sessionId,
+          revokedAt: null,
         },
       },
     );

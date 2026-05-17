@@ -3,7 +3,7 @@ import { Client } from 'pg';
 const mutableTables = [
   'notifications',
   'errors-logs',
-  'refresh_tokens',
+  'auth_sessions',
   'credentials',
   'application_memberships',
   'applications',

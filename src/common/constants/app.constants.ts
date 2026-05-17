@@ -30,12 +30,6 @@ export enum NotificationType {
   APPLICATION_INVITE = 'application_invite',
 }
 
-export enum RefreshTokenStatus {
-  ACTIVE = 'active',
-  REVOKED = 'revoked',
-  EXPIRED = 'expired',
-}
-
 export enum UserProvider {
   LOCAL = 'local',
   GOOGLE = 'google',
