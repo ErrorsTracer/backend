@@ -1,7 +1,7 @@
 import { getModelToken } from '@nestjs/sequelize';
 import request from 'supertest';
-import { ApplicationTypes } from '../../src/database/models/application-types.model';
-import { Credentials } from '../../src/database/models/credentials.model';
+import { Frameworks } from '../../src/database/models/frameworks.model';
+import { Environments } from '../../src/database/models/environments.model';
 import { AuthSession } from './auth';
 import { E2eAppContext } from './e2e-app';
 import { authHeader } from './http';
@@ -14,17 +14,19 @@ export type ApplicationFixture = {
   appKey: string;
 };
 
-export async function getReactAppTypeId(context: E2eAppContext) {
-  const appTypesModel = context.app.get<typeof ApplicationTypes>(
-    getModelToken(ApplicationTypes),
+export async function getReactFrameworkId(context: E2eAppContext) {
+  const frameworksModel = context.app.get<typeof Frameworks>(
+    getModelToken(Frameworks),
   );
-  const appType = await appTypesModel.findOne({ where: { type: 'React' } });
+  const framework = await frameworksModel.findOne({
+    where: { name: 'React.js' },
+  });
 
-  if (!appType) {
-    throw new Error('React application type seed is missing');
+  if (!framework) {
+    throw new Error('React.js framework seed is missing');
   }
 
-  return appType.id;
+  return framework.id;
 }
 
 export async function createApplicationFixture(
@@ -38,30 +40,31 @@ export async function createApplicationFixture(
     .set(authHeader(owner.accessToken))
     .send({
       name: `E2E App ${appCounter}`,
+      envName: 'production',
       about: 'Created by e2e tests',
-      appType: await getReactAppTypeId(context),
+      framework: await getReactFrameworkId(context),
     })
     .expect(201);
 
-  const credentialsModel = context.app.get<typeof Credentials>(
-    getModelToken(Credentials),
+  const environmentsModel = context.app.get<typeof Environments>(
+    getModelToken(Environments),
   );
-  const credential = await credentialsModel.findOne({
+  const environment = await environmentsModel.findOne({
     where: { applicationId: createResponse.body.id },
   });
 
-  if (!credential) {
-    throw new Error('Application credential was not created');
+  if (!environment) {
+    throw new Error('Application environment was not created');
   }
 
   return {
     id: createResponse.body.id,
     name: createResponse.body.name,
-    appKey: credential.appKey,
+    appKey: environment.appKey,
   };
 }
 
-export async function enableProductionCredentials(
+export async function enableProductionEnvironment(
   context: E2eAppContext,
   owner: AuthSession,
   applicationId: string,

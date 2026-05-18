@@ -4,7 +4,7 @@ const mutableTables = [
   'notifications',
   'errors-logs',
   'auth_sessions',
-  'credentials',
+  'environments',
   'application_memberships',
   'applications',
   'users',

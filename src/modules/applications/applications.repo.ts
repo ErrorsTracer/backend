@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { literal, Transaction } from 'sequelize';
 import { ApplicationMembership } from '../../database/models/application-membership.model';
-import { ApplicationTypes } from '../../database/models/application-types.model';
+import { Frameworks } from '../../database/models/frameworks.model';
 import { Applications } from '../../database/models/applications.model';
-import { Credentials } from '../../database/models/credentials.model';
+import { Environments } from '../../database/models/environments.model';
 import { Errors } from '../../database/models/errors.model';
 import { Notifications } from '../../database/models/notifications.model';
 
@@ -19,7 +19,7 @@ import {
 type CreateAppData = {
   name: string;
   about: string;
-  typeId: string;
+  frameworkId: string;
   ownerId: string;
 };
 
@@ -32,14 +32,15 @@ type CreateAppMembershipData = {
   invitedBy?: string | null;
 };
 
-type CreateCredentialData = {
+type CreateEnvironmentData = {
   applicationId: string;
-  isProductionEnabled: boolean;
+  isEnabled: boolean;
+  envName: string;
 };
 
 type UpdateProductionModeData = {
   applicationId: string;
-  isProductionEnabled: boolean;
+  isEnabled: boolean;
 };
 
 type UpdateApplicationStatusData = {
@@ -77,8 +78,8 @@ type CreateNotificationData = {
 @Injectable()
 export class ApplicationsRepository {
   constructor(
-    @InjectModel(ApplicationTypes)
-    private appTypesRepository: typeof ApplicationTypes,
+    @InjectModel(Frameworks)
+    private frameworksRepository: typeof Frameworks,
     @InjectModel(Applications)
     private appsRepository: typeof Applications,
     @InjectModel(ApplicationMembership)
@@ -86,16 +87,16 @@ export class ApplicationsRepository {
 
     @InjectModel(Users)
     private usersRepository: typeof Users,
-    @InjectModel(Credentials)
-    private credentialsRepository: typeof Credentials,
+    @InjectModel(Environments)
+    private environmentsRepository: typeof Environments,
     @InjectModel(Errors)
     private errorsRepository: typeof Errors,
     @InjectModel(Notifications)
     private notificationsRepository: typeof Notifications,
   ) {}
 
-  async getAppTypes() {
-    return await this.appTypesRepository.findAll();
+  async getFrameworks() {
+    return await this.frameworksRepository.findAll();
   }
 
   async createApplication(data: CreateAppData, transaction?: Transaction) {
@@ -103,7 +104,7 @@ export class ApplicationsRepository {
       {
         name: data.name,
         about: data.about,
-        typeId: data.typeId,
+        frameworkId: data.frameworkId,
         ownerId: data.ownerId,
       } as any,
       { transaction },
@@ -164,31 +165,31 @@ export class ApplicationsRepository {
     );
   }
 
-  async createCredential(
-    data: CreateCredentialData,
+  async createEnvironment(
+    data: CreateEnvironmentData,
     transaction?: Transaction,
   ) {
-    return await this.credentialsRepository.create(
+    return await this.environmentsRepository.create(
       {
         applicationId: data.applicationId,
-        isProductionEnabled: data.isProductionEnabled,
+        isEnabled: data.isEnabled,
       } as any,
       { transaction },
     );
   }
 
   async updateProductionMode(data: UpdateProductionModeData) {
-    const credential = await this.credentialsRepository.findOne({
+    const environment = await this.environmentsRepository.findOne({
       where: { applicationId: data.applicationId },
     });
 
-    if (!credential) {
+    if (!environment) {
       return null;
     }
 
-    credential.isProductionEnabled = data.isProductionEnabled;
+    environment.isEnabled = data.isEnabled;
 
-    return await credential.save();
+    return await environment.save();
   }
 
   async getOwnerMembershipForApp({
@@ -209,7 +210,7 @@ export class ApplicationsRepository {
     applicationId: string,
     transaction?: Transaction,
   ) {
-    return await this.credentialsRepository.destroy({
+    return await this.environmentsRepository.destroy({
       where: { applicationId },
       transaction,
     });
@@ -273,7 +274,7 @@ export class ApplicationsRepository {
           include: [
             [
               literal(`(
-                SELECT COUNT(*)
+                SELECT COUNT(*)::int
                 FROM "application_memberships" AS "membership_count"
                 WHERE "membership_count"."applicationId" = "Applications"."id"
                   AND "membership_count"."status" = '${ApplicationMembershipStatus.ACTIVE}'
@@ -281,10 +282,30 @@ export class ApplicationsRepository {
               )`),
               'membershipsCount',
             ],
+            [
+              literal(`(
+                SELECT COUNT(*)::int
+                FROM "errors-logs" AS "errors_count"
+                WHERE "errors_count"."applicationId" = "Applications"."id"
+              )`),
+              'totalErrors',
+            ],
+            [
+              literal(`(
+                SELECT COUNT(*)::int
+                FROM "errors-logs" AS "critical_errors_count"
+                WHERE "critical_errors_count"."applicationId" = "Applications"."id"
+                  AND "critical_errors_count"."level" = 'fatal'
+              )`),
+              'criticalErrors',
+            ],
           ],
-          exclude: ['deletedAt', 'updatedAt', 'ownerId', 'typeId'],
+          exclude: ['deletedAt', 'updatedAt', 'ownerId', 'frameworkId'],
         },
-        include: [{ model: ApplicationTypes }],
+        include: [
+          { model: Frameworks, attributes: ['name'] },
+          { model: Environments, as: 'environment', attributes: ['envName'] },
+        ],
       });
   }
 
@@ -314,9 +335,12 @@ export class ApplicationsRepository {
               'membershipsCount',
             ],
           ],
-          exclude: ['deletedAt', 'updatedAt', 'ownerId', 'typeId'],
+          exclude: ['deletedAt', 'updatedAt', 'ownerId', 'frameworkId'],
         },
-        include: [{ model: ApplicationTypes }],
+        include: [
+          { model: Frameworks, attributes: ['name'] },
+          { model: Environments, as: 'environment', attributes: ['envName'] },
+        ],
       });
   }
 
@@ -329,8 +353,8 @@ export class ApplicationsRepository {
 
         include: [
           {
-            model: Credentials,
-            as: 'credential',
+            model: Environments,
+            as: 'environment',
             attributes: {
               exclude: ['deletedAt', 'updatedAt', 'id', 'applicationId'],
             },

@@ -6,9 +6,9 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { AuthSessions } from './database/models/auth-sessions.model';
 import { Users } from './database/models/users.model';
 import { Applications } from './database/models/applications.model';
-import { ApplicationTypes } from './database/models/application-types.model';
+import { Frameworks } from './database/models/frameworks.model';
 import { ApplicationMembership } from './database/models/application-membership.model';
-import { Credentials } from './database/models/credentials.model';
+import { Environments } from './database/models/environments.model';
 
 import { Errors } from './database/models/errors.model';
 import { Notifications } from './database/models/notifications.model';
@@ -29,10 +29,10 @@ import { UsersModule } from './modules/users/users.module';
       port: Number(process.env.DB_PORT),
       models: [
         Users,
-        ApplicationTypes,
+        Frameworks,
         Applications,
         ApplicationMembership,
-        Credentials,
+        Environments,
         Notifications,
         Errors,
         AuthSessions,

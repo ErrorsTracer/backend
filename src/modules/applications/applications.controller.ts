@@ -20,7 +20,7 @@ export class ApplicationsController {
   constructor(private appService: ApplicationsService) {}
 
   @Get('/')
-  async getApps(@Body() data: any, @Req() req: any) {
+  async getApps(@Req() req: any) {
     return await this.appService.getMyApps(req.user);
   }
 
@@ -30,9 +30,9 @@ export class ApplicationsController {
   }
 
   @UnGuard()
-  @Get('/types')
-  async getAppTypes() {
-    return await this.appService.getAppTypes();
+  @Get('/frameworks')
+  async getFrameworks() {
+    return await this.appService.getFrameworks();
   }
 
   @Get('/:id')

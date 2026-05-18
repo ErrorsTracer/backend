@@ -6,7 +6,7 @@ import { resetTestData } from '../support/db-reset';
 import { createE2eApp, E2eAppContext } from '../support/e2e-app';
 import {
   createApplicationFixture,
-  enableProductionCredentials,
+  enableProductionEnvironment,
 } from '../support/fixtures';
 
 describe('Generic error ingestion API (e2e)', () => {
@@ -29,7 +29,7 @@ describe('Generic error ingestion API (e2e)', () => {
   async function createIngestionTarget(prefix = 'owner') {
     const owner = await registerAndLogin(context.httpServer, prefix);
     const application = await createApplicationFixture(context, owner);
-    await enableProductionCredentials(context, owner, application.id);
+    await enableProductionEnvironment(context, owner, application.id);
 
     return application;
   }

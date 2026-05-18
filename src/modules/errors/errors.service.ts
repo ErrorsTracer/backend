@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Applications } from '../../database/models/applications.model';
-import { Credentials } from '../../database/models/credentials.model';
+import { Environments } from '../../database/models/environments.model';
 import { Errors } from '../../database/models/errors.model';
 import { ERROR_KEYS } from '../../common/localization/error-keys';
 import { IngestErrorDto } from './errors.dto';
@@ -17,8 +17,8 @@ export class ErrorsService {
   constructor(
     @InjectModel(Errors)
     private errorsRepository: typeof Errors,
-    @InjectModel(Credentials)
-    private credentialsRepository: typeof Credentials,
+    @InjectModel(Environments)
+    private environmentsRepository: typeof Environments,
   ) {}
 
   async ingestError(data: IngestErrorDto, ingestionKey?: string) {
@@ -26,7 +26,7 @@ export class ErrorsService {
       throw new UnauthorizedException(ERROR_KEYS.AUTH_REQUIRED);
     }
 
-    const credential = await this.credentialsRepository.findOne({
+    const credential = await this.environmentsRepository.findOne({
       where: { appKey: ingestionKey },
       include: [{ model: Applications }],
     });
@@ -41,7 +41,7 @@ export class ErrorsService {
       throw new ForbiddenException(ERROR_KEYS.APP_ORGANIZATION_MISMATCH);
     }
 
-    if (!credential.isProductionEnabled) {
+    if (!credential.isEnabled) {
       throw new BadRequestException(ERROR_KEYS.APP_PRODUCTION_DISABLED);
     }
 

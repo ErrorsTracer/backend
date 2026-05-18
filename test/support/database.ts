@@ -1,19 +1,19 @@
 import { Sequelize } from 'sequelize-typescript';
 import { ApplicationMembership } from '../../src/database/models/application-membership.model';
-import { ApplicationTypes } from '../../src/database/models/application-types.model';
+import { Frameworks } from '../../src/database/models/frameworks.model';
 import { Applications } from '../../src/database/models/applications.model';
 import { AuthSessions } from '../../src/database/models/auth-sessions.model';
-import { Credentials } from '../../src/database/models/credentials.model';
+import { Environments } from '../../src/database/models/environments.model';
 import { Errors } from '../../src/database/models/errors.model';
 import { Notifications } from '../../src/database/models/notifications.model';
 import { Users } from '../../src/database/models/users.model';
 
 export const testModels = [
   Users,
-  ApplicationTypes,
+  Frameworks,
   Applications,
   ApplicationMembership,
-  Credentials,
+  Environments,
   Notifications,
   Errors,
   AuthSessions,

@@ -13,10 +13,10 @@ import {
   Index,
   Scopes,
 } from 'sequelize-typescript';
-import { Credentials } from './credentials.model';
+import { Environments } from './environments.model';
 import { ApplicationMembership } from './application-membership.model';
 import { Errors } from './errors.model';
-import { ApplicationTypes } from './application-types.model';
+import { Frameworks } from './frameworks.model';
 import { Users } from './users.model';
 import { Notifications } from './notifications.model';
 import {
@@ -94,10 +94,10 @@ export class Applications extends Model<Applications> {
   })
   declare owner: Users;
 
-  @HasOne(() => Credentials, {
+  @HasOne(() => Environments, {
     onDelete: 'RESTRICT',
   })
-  declare credential: Credentials;
+  declare environment: Environments;
 
   @HasMany(() => ApplicationMembership, {
     onDelete: 'RESTRICT',
@@ -109,16 +109,15 @@ export class Applications extends Model<Applications> {
   })
   declare notifications: Notifications[];
 
-  // Uncomment if you re-enable Errors
   @HasMany(() => Errors)
   declare errors: Errors[];
 
   @Index
-  @ForeignKey(() => ApplicationTypes)
+  @ForeignKey(() => Frameworks)
   @AllowNull(false)
   @Column(DataType.UUID)
-  declare typeId: string;
+  declare frameworkId: string;
 
-  @BelongsTo(() => ApplicationTypes)
-  declare type: ApplicationTypes;
+  @BelongsTo(() => Frameworks)
+  declare framework: Frameworks;
 }

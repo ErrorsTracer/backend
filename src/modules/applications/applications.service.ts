@@ -41,8 +41,8 @@ export class ApplicationsService {
     );
   }
 
-  async getAppTypes() {
-    return await this.applicationsRepository.getAppTypes();
+  async getFrameworks() {
+    return await this.applicationsRepository.getFrameworks();
   }
 
   async updateProductionMode(params, user) {
@@ -55,12 +55,12 @@ export class ApplicationsService {
       throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
     }
 
-    const credential = await this.applicationsRepository.updateProductionMode({
+    const environment = await this.applicationsRepository.updateProductionMode({
       applicationId: params.id,
-      isProductionEnabled: !application.credential.isProductionEnabled,
+      isEnabled: !application.environment.isEnabled,
     });
 
-    if (!credential) {
+    if (!environment) {
       throw new NotFoundException(ERROR_KEYS.CREDENTIAL_NOT_FOUND);
     }
 
@@ -77,15 +77,15 @@ export class ApplicationsService {
       throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
     }
 
-    if (!application.credential) {
+    if (!application.environment) {
       throw new NotFoundException(ERROR_KEYS.CREDENTIAL_NOT_FOUND);
     }
 
     return {
-      id: application.credential.id,
-      appKey: application.credential.appKey,
-      isProductionEnabled: application.credential.isProductionEnabled,
-      applicationId: application.credential.applicationId,
+      id: application.environment.id,
+      appKey: application.environment.appKey,
+      isEnabled: application.environment.isEnabled,
+      applicationId: application.environment.applicationId,
     };
   }
 
@@ -107,7 +107,7 @@ export class ApplicationsService {
           {
             name: data.name,
             about: data.about,
-            typeId: data.appType,
+            frameworkId: data.framework,
             ownerId: user.id,
           },
           transaction,
@@ -125,15 +125,16 @@ export class ApplicationsService {
             transaction,
           );
 
-        const credential = await this.applicationsRepository.createCredential(
+        const environment = await this.applicationsRepository.createEnvironment(
           {
             applicationId: application.dataValues.id,
-            isProductionEnabled: false,
+            envName: data.envName,
+            isEnabled: false,
           },
           transaction,
         );
 
-        return { ...application.toJSON(), membership, credential };
+        return { ...application.toJSON(), membership, environment };
       },
     );
 

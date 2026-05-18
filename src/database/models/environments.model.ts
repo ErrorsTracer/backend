@@ -15,10 +15,10 @@ import { randomBytes } from 'crypto';
 import { Applications } from './applications.model';
 
 @Table({
-  tableName: 'credentials',
+  tableName: 'environments',
   timestamps: true,
 })
-export class Credentials extends Model<Credentials> {
+export class Environments extends Model<Environments> {
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -28,10 +28,13 @@ export class Credentials extends Model<Credentials> {
   @Column(DataType.STRING)
   declare appKey: string;
 
+  @Column(DataType.STRING)
+  declare envName: string;
+
   @Default(false)
   @AllowNull(false)
   @Column(DataType.BOOLEAN)
-  declare isProductionEnabled: boolean;
+  declare isEnabled: boolean;
 
   // ======================
   // Relations
@@ -49,18 +52,16 @@ export class Credentials extends Model<Credentials> {
   declare application: Applications;
 
   @BeforeCreate
-  static saveAppKey(instance: Credentials) {
+  static saveAppKey(instance: Environments) {
     if (!instance.appKey) {
-      instance.appKey = Credentials.generateAppKey();
+      instance.appKey = Environments.generateAppKey();
     }
   }
 
   private static generateAppKey(length = 26): string {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const keygen = process.env.APP_KEY_GENERATOR as string;
     const bytes = randomBytes(length);
 
-    return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join(
-      '',
-    );
+    return Array.from(bytes, (byte) => keygen[byte % keygen.length]).join('');
   }
 }

@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsNotEmpty,
   IsOptional,
+  IsString,
   IsUUID,
 } from 'class-validator';
 
@@ -11,12 +12,16 @@ export class CreateAppDto {
   @IsNotEmpty()
   declare name: string;
 
+  @IsNotEmpty()
+  @IsString()
+  declare envName: string;
+
   @IsOptional()
   declare about: string;
 
   @IsNotEmpty()
   @IsUUID()
-  declare appType: string;
+  declare framework: string;
 }
 
 export class InvitePeopleDto {

@@ -8,15 +8,14 @@ import {
   HasMany,
   Default,
   Index,
-  BeforeCreate,
 } from 'sequelize-typescript';
 import { Applications } from './applications.model';
 
 @Table({
-  tableName: 'application_types',
+  tableName: 'frameworks',
   timestamps: false,
 })
-export class ApplicationTypes extends Model<ApplicationTypes> {
+export class Frameworks extends Model<Frameworks> {
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -28,11 +27,7 @@ export class ApplicationTypes extends Model<ApplicationTypes> {
     type: DataType.STRING,
     allowNull: false,
   })
-  declare type: string;
-
-  @AllowNull(true)
-  @Column(DataType.STRING)
-  declare picture: string;
+  declare name: string;
 
   @AllowNull(true)
   @Column(DataType.TEXT)
@@ -43,12 +38,7 @@ export class ApplicationTypes extends Model<ApplicationTypes> {
   // ======================
 
   @HasMany(() => Applications, {
-    foreignKey: 'typeId',
+    foreignKey: 'frameworkId',
   })
   declare applications: Applications[];
-
-  @BeforeCreate
-  static normalizeType(instance: ApplicationTypes) {
-    instance.type = instance.type.toLowerCase().trim();
-  }
 }
