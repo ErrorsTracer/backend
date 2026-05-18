@@ -173,6 +173,7 @@ export class ApplicationsRepository {
       {
         applicationId: data.applicationId,
         isEnabled: data.isEnabled,
+        envName: data.envName,
       } as any,
       { transaction },
     );
@@ -278,7 +279,6 @@ export class ApplicationsRepository {
                 FROM "application_memberships" AS "membership_count"
                 WHERE "membership_count"."applicationId" = "Applications"."id"
                   AND "membership_count"."status" = '${ApplicationMembershipStatus.ACTIVE}'
-                  AND "membership_count"."deletedAt" IS NULL
               )`),
               'membershipsCount',
             ],
@@ -330,7 +330,6 @@ export class ApplicationsRepository {
                 FROM "application_memberships" AS "membership_count"
                 WHERE "membership_count"."applicationId" = "Applications"."id"
                   AND "membership_count"."status" = '${ApplicationMembershipStatus.ACTIVE}'
-                  AND "membership_count"."deletedAt" IS NULL
               )`),
               'membershipsCount',
             ],

@@ -20,7 +20,7 @@ import {
 @Table({
   tableName: 'application_memberships',
   timestamps: true,
-  paranoid: true,
+  paranoid: false,
   scopes: {
     active: {
       where: { status: ApplicationMembershipStatus.ACTIVE },

@@ -42,7 +42,7 @@ import {
 @Table({
   tableName: 'applications',
   timestamps: true,
-  paranoid: true,
+  paranoid: false,
   defaultScope: {
     where: {
       status: ApplicationStatus.ACTIVE,

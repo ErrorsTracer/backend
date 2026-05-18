@@ -13,6 +13,9 @@ export default async function globalSetup() {
     process.env.ACCESS_TOKEN_SECRET ?? 'test-access-token-secret';
   process.env.REFRESH_TOKEN_SECRET =
     process.env.REFRESH_TOKEN_SECRET ?? 'test-refresh-token-secret';
+  process.env.APP_KEY_GENERATOR =
+    process.env.APP_KEY_GENERATOR ??
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
   const container = await new PostgreSqlContainer('postgres:16-alpine')
     .withDatabase('errortracer_test')
