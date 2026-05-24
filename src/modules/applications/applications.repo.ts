@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { QueryTypes, literal, Op, Transaction } from 'sequelize';
+import { col, fn, Op, Transaction, where as sequelizeWhere } from 'sequelize';
 import { ApplicationMembership } from '../../database/models/application-membership.model';
 import { Frameworks } from '../../database/models/frameworks.model';
 import { Applications } from '../../database/models/applications.model';
@@ -92,9 +92,26 @@ type GetRecentErrorsByApplicationIdData = {
   limit: number;
 };
 
+type RecentErrorGroup = {
+  errorName: string;
+  repeated: number | string;
+  lastSeenAt: Date | string;
+};
+
 type GetErrorDetailsByApplicationIdData = {
   applicationId: string;
   errorId: string;
+};
+
+type WeeklyErrorReportRow = {
+  week: 'thisWeek' | 'lastWeek';
+  dayOfWeek: number;
+  errors: number;
+};
+
+type GroupedWeeklyErrorCount = {
+  date: string;
+  errors: number | string;
 };
 
 @Injectable()
@@ -304,38 +321,10 @@ export class ApplicationsRepository {
   }
 
   async getUserApps(userId: string) {
-    return await this.appsRepository
+    const applications = await this.appsRepository
       .scope({ method: ['associatedWithUser', userId] })
       .findAll({
         attributes: {
-          include: [
-            [
-              literal(`(
-                SELECT COUNT(*)::int
-                FROM "application_memberships" AS "membership_count"
-                WHERE "membership_count"."applicationId" = "Applications"."id"
-                  AND "membership_count"."status" = '${ApplicationMembershipStatus.ACTIVE}'
-              )`),
-              'membershipsCount',
-            ],
-            [
-              literal(`(
-                SELECT COUNT(*)::int
-                FROM "errors-logs" AS "errors_count"
-                WHERE "errors_count"."applicationId" = "Applications"."id"
-              )`),
-              'totalErrors',
-            ],
-            [
-              literal(`(
-                SELECT COUNT(*)::int
-                FROM "errors-logs" AS "critical_errors_count"
-                WHERE "critical_errors_count"."applicationId" = "Applications"."id"
-                  AND "critical_errors_count"."level" IN ('fatal', 'critical')
-              )`),
-              'criticalErrors',
-            ],
-          ],
           exclude: ['deletedAt', 'updatedAt', 'ownerId', 'frameworkId'],
         },
         include: [
@@ -343,6 +332,18 @@ export class ApplicationsRepository {
           { model: Environments, as: 'environment', attributes: ['envName'] },
         ],
       });
+
+    await Promise.all(
+      applications.map(async (application) => {
+        const counts = await this.getApplicationOverviewCounts(application.id);
+
+        application.setDataValue('membershipsCount', counts.membershipsCount);
+        application.setDataValue('totalErrors', counts.errorsCount);
+        application.setDataValue('criticalErrors', counts.criticalCount);
+      }),
+    );
+
+    return applications;
   }
 
   async getAppByNameForUser({ name, userId }: GetAppByNameForUserData) {
@@ -354,39 +355,11 @@ export class ApplicationsRepository {
   }
 
   async getAppByIdForUser({ applicationId, userId }: GetAppByIdForUserData) {
-    return await this.appsRepository
+    const application = await this.appsRepository
       .scope({ method: ['associatedWithUser', userId] })
       .findOne({
         where: { id: applicationId },
         attributes: {
-          include: [
-            [
-              literal(`(
-                SELECT COUNT(*)
-                FROM "application_memberships" AS "membership_count"
-                WHERE "membership_count"."applicationId" = "Applications"."id"
-                  AND "membership_count"."status" = '${ApplicationMembershipStatus.ACTIVE}'
-              )`),
-              'membershipsCount',
-            ],
-            [
-              literal(`(
-                SELECT COUNT(*)::int
-                FROM "errors-logs" AS "errors_count"
-                WHERE "errors_count"."applicationId" = "Applications"."id"
-              )`),
-              'errorsCount',
-            ],
-            [
-              literal(`(
-                SELECT COUNT(*)::int
-                FROM "errors-logs" AS "critical_errors_count"
-                WHERE "critical_errors_count"."applicationId" = "Applications"."id"
-                  AND "critical_errors_count"."level" IN ('fatal', 'critical')
-              )`),
-              'criticalCount',
-            ],
-          ],
           exclude: ['deletedAt', 'updatedAt', 'ownerId', 'frameworkId'],
         },
         include: [
@@ -394,6 +367,17 @@ export class ApplicationsRepository {
           { model: Environments, as: 'environment', attributes: ['envName'] },
         ],
       });
+
+    if (!application) {
+      return null;
+    }
+
+    const counts = await this.getApplicationOverviewCounts(application.id);
+    application.setDataValue('membershipsCount', counts.membershipsCount);
+    application.setDataValue('errorsCount', counts.errorsCount);
+    application.setDataValue('criticalCount', counts.criticalCount);
+
+    return application;
   }
 
   async getAllAppInfo({ applicationId, userId }: GetAppByIdForUserData) {
@@ -469,131 +453,149 @@ export class ApplicationsRepository {
     applicationId,
     limit,
   }: GetRecentErrorsByApplicationIdData) {
-    return await this.errorsRepository.sequelize!.query(
-      `
-        WITH grouped_errors AS (
-          SELECT
-            COALESCE("name", "error") AS "errorName",
-            COUNT(*)::int AS "repeated",
-            MAX("createdAt") AS "lastSeenAt"
-          FROM "errors-logs"
-          WHERE "applicationId" = :applicationId
-          GROUP BY COALESCE("name", "error")
-        ),
-        latest_errors AS (
-          SELECT DISTINCT ON (COALESCE(errors."name", errors."error"))
-            errors."id",
-            errors."error",
-            errors."stack",
-            errors."environment",
-            errors."framework",
-            errors."language",
-            errors."runtime",
-            errors."level",
-            errors."name",
-            errors."fingerprint",
-            errors."handled",
-            errors."timestamp",
-            errors."release",
-            errors."url",
-            errors."transaction",
-            errors."user",
-            errors."request",
-            errors."tags",
-            errors."extra",
-            errors."breadcrumbs",
-            errors."contexts",
-            errors."additionalData",
-            errors."href",
-            errors."host",
-            errors."client",
-            errors."clientAgent",
-            errors."clientPlatform",
-            errors."createdAt",
-            COALESCE(errors."name", errors."error") AS "errorName"
-          FROM "errors-logs" AS errors
-          WHERE errors."applicationId" = :applicationId
-          ORDER BY
-            COALESCE(errors."name", errors."error"),
-            errors."createdAt" DESC,
-            errors."id" DESC
-        )
-        SELECT
-          latest_errors.*,
-          grouped_errors."repeated",
-          grouped_errors."lastSeenAt"
-        FROM latest_errors
-        INNER JOIN grouped_errors
-          ON grouped_errors."errorName" = latest_errors."errorName"
-        ORDER BY grouped_errors."lastSeenAt" DESC, latest_errors."id" DESC
-        LIMIT :limit
-      `,
-      {
-        replacements: { applicationId, limit },
-        type: QueryTypes.SELECT,
-      },
+    const errorName = this.getErrorNameExpression();
+    const groups = (await this.errorsRepository.findAll({
+      attributes: [
+        [errorName, 'errorName'],
+        [fn('COUNT', col('id')), 'repeated'],
+        [fn('MAX', col('createdAt')), 'lastSeenAt'],
+      ],
+      where: { applicationId },
+      group: [errorName],
+      order: [[fn('MAX', col('createdAt')), 'DESC']],
+      limit,
+      raw: true,
+    })) as unknown as RecentErrorGroup[];
+
+    const errors = await Promise.all(
+      groups.map(async (group) => {
+        const latestError = await this.errorsRepository.findOne({
+          where: {
+            applicationId,
+            [Op.and]: sequelizeWhere(
+              this.getErrorNameExpression(),
+              group.errorName,
+            ),
+          },
+          order: [
+            ['createdAt', 'DESC'],
+            ['id', 'DESC'],
+          ],
+          attributes: {
+            exclude: ['applicationId', 'updatedAt'],
+          },
+        });
+
+        if (!latestError) {
+          return null;
+        }
+
+        return {
+          ...latestError.get({ plain: true }),
+          errorName: group.errorName,
+          repeated: Number(group.repeated),
+          lastSeenAt: group.lastSeenAt,
+        };
+      }),
     );
+
+    return errors.filter((error) => error !== null);
+  }
+
+  async getWeeklyErrorReportByApplicationId(applicationId: string) {
+    const thisWeekStart = this.getUtcWeekStart(new Date());
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
+    const nextWeekStart = new Date(thisWeekStart);
+    nextWeekStart.setUTCDate(nextWeekStart.getUTCDate() + 7);
+    const utcCreatedDate = fn('date', fn('timezone', 'UTC', col('createdAt')));
+
+    const counts = (await this.errorsRepository.findAll({
+      attributes: [
+        [utcCreatedDate, 'date'],
+        [fn('COUNT', col('id')), 'errors'],
+      ],
+      where: {
+        applicationId,
+        createdAt: {
+          [Op.gte]: lastWeekStart,
+          [Op.lt]: nextWeekStart,
+        },
+      },
+      group: [utcCreatedDate],
+      raw: true,
+    })) as unknown as GroupedWeeklyErrorCount[];
+
+    return counts.map((count): WeeklyErrorReportRow => {
+      const date = new Date(`${count.date}T00:00:00.000Z`);
+
+      return {
+        week: date >= thisWeekStart ? 'thisWeek' : 'lastWeek',
+        dayOfWeek: date.getUTCDay() || 7,
+        errors: Number(count.errors),
+      };
+    });
   }
 
   async getErrorDetailsByApplicationId({
     applicationId,
     errorId,
   }: GetErrorDetailsByApplicationIdData) {
-    const [error] = await this.errorsRepository.sequelize!.query(
-      `
-        WITH selected_error AS (
-          SELECT
-            errors."id",
-            errors."error",
-            errors."stack",
-            errors."environment",
-            errors."framework",
-            errors."language",
-            errors."runtime",
-            errors."level",
-            errors."name",
-            errors."fingerprint",
-            errors."handled",
-            errors."timestamp",
-            errors."release",
-            errors."url",
-            errors."transaction",
-            errors."user",
-            errors."request",
-            errors."tags",
-            errors."extra",
-            errors."breadcrumbs",
-            errors."contexts",
-            errors."additionalData",
-            errors."href",
-            errors."host",
-            errors."client",
-            errors."clientAgent",
-            errors."clientPlatform",
-            errors."createdAt",
-            COALESCE(errors."name", errors."error") AS "errorName"
-          FROM "errors-logs" AS errors
-          WHERE errors."applicationId" = :applicationId
-            AND errors."id" = :errorId
-          LIMIT 1
-        )
-        SELECT
-          selected_error.*,
-          (
-            SELECT COUNT(*)::int
-            FROM "errors-logs" AS repeated_errors
-            WHERE repeated_errors."applicationId" = :applicationId
-              AND COALESCE(repeated_errors."name", repeated_errors."error") =
-                selected_error."errorName"
-          ) AS "repeated"
-        FROM selected_error
-      `,
-      {
-        replacements: { applicationId, errorId },
-        type: QueryTypes.SELECT,
+    const error = await this.errorsRepository.findOne({
+      where: { applicationId, id: errorId },
+      attributes: {
+        exclude: ['applicationId', 'updatedAt'],
       },
-    );
+    });
 
-    return error ?? null;
+    if (!error) {
+      return null;
+    }
+
+    const errorName = error.name ?? error.error;
+    const repeated = await this.errorsRepository.count({
+      where: {
+        applicationId,
+        [Op.and]: sequelizeWhere(this.getErrorNameExpression(), errorName),
+      },
+    });
+
+    return {
+      ...error.get({ plain: true }),
+      errorName,
+      repeated,
+    };
+  }
+
+  private getUtcWeekStart(date: Date) {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+
+    return start;
+  }
+
+  private getErrorNameExpression() {
+    return fn('COALESCE', col('name'), col('error'));
+  }
+
+  private async getApplicationOverviewCounts(applicationId: string) {
+    const [membershipsCount, errorsCount, criticalCount] = await Promise.all([
+      this.appMembershipRepository.count({
+        where: {
+          applicationId,
+          status: ApplicationMembershipStatus.ACTIVE,
+        },
+      }),
+      this.errorsRepository.count({ where: { applicationId } }),
+      this.errorsRepository.count({
+        where: {
+          applicationId,
+          level: { [Op.in]: ['fatal', 'critical'] },
+        },
+      }),
+    ]);
+
+    return { membershipsCount, errorsCount, criticalCount };
   }
 }

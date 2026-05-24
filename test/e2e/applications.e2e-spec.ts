@@ -4,6 +4,7 @@ import { resetTestData } from '../support/db-reset';
 import { createE2eApp, E2eAppContext } from '../support/e2e-app';
 import {
   createApplicationFixture,
+  enableProductionEnvironment,
   getReactFrameworkId,
   inviteUserToApplication,
 } from '../support/fixtures';
@@ -427,5 +428,49 @@ describe('Applications API (e2e)', () => {
       .get(`/v0.1/applications/${application.id}`)
       .set(authHeader(owner.accessToken))
       .expect(404);
+  });
+
+  it('reports application errors by the day they were received', async () => {
+    const owner = await registerAndLogin(context.httpServer, 'report-owner');
+    const application = await createApplicationFixture(context, owner);
+    await enableProductionEnvironment(context, owner, application.id);
+
+    const backdatedWednesday = new Date();
+    backdatedWednesday.setUTCHours(12, 0, 0, 0);
+    backdatedWednesday.setUTCDate(
+      backdatedWednesday.getUTCDate() -
+        ((backdatedWednesday.getUTCDay() + 4) % 7 || 7),
+    );
+
+    for (const index of [1, 2, 3]) {
+      await request(context.httpServer)
+        .post('/v0.1/errors/ingest')
+        .set('X-ErrorTracer-Key', application.appKey)
+        .send({
+          projectId: application.id,
+          message: `Received today report smoke ${index}`,
+          timestamp: backdatedWednesday.toISOString(),
+        })
+        .expect(201);
+    }
+
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayIndex = (new Date().getUTCDay() + 6) % 7;
+    const thisWeek = days.map((day, index) => ({
+      day,
+      errors: index === todayIndex ? 3 : 0,
+    }));
+    const lastWeek = days.map((day) => ({ day, errors: 0 }));
+
+    await request(context.httpServer)
+      .get(`/v0.1/applications/${application.id}/errors/report`)
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          thisWeek,
+          lastWeek,
+        });
+      });
   });
 });

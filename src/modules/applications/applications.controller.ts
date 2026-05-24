@@ -67,6 +67,11 @@ export class ApplicationsController {
     );
   }
 
+  @Get('/:id/errors/report')
+  async getAppErrorsReport(@Param() params: any, @Req() req: any) {
+    return await this.appService.getApplicationErrorsReport(params, req.user);
+  }
+
   @Get('/:id/errors/:errorId')
   async getAppErrorDetails(@Param() params: any, @Req() req: any) {
     return await this.appService.getApplicationErrorDetails(params, req.user);

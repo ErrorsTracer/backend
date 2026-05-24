@@ -18,6 +18,7 @@ import { GetApplicationErrorsDto } from './applications.dto';
 
 const DEFAULT_ERRORS_PAGE_LIMIT = 25;
 const MAX_ERRORS_PAGE_LIMIT = 100;
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 type ErrorPaginationCursor = {
   createdAt: string;
@@ -136,6 +137,27 @@ export class ApplicationsService {
     }
 
     return error;
+  }
+
+  async getApplicationErrorsReport(params, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const weeklyCounts =
+      await this.applicationsRepository.getWeeklyErrorReportByApplicationId(
+        params.id,
+      );
+
+    return {
+      thisWeek: this.formatWeeklyErrorCounts(weeklyCounts, 'thisWeek'),
+      lastWeek: this.formatWeeklyErrorCounts(weeklyCounts, 'lastWeek'),
+    };
   }
 
   async getFrameworks() {
@@ -506,5 +528,18 @@ export class ApplicationsService {
         id: error.id,
       }),
     ).toString('base64url');
+  }
+
+  private formatWeeklyErrorCounts(
+    counts: { week: string; dayOfWeek: number; errors: number }[],
+    week: 'thisWeek' | 'lastWeek',
+  ) {
+    return WEEK_DAYS.map((day, index) => ({
+      day,
+      errors:
+        counts.find(
+          (count) => count.week === week && count.dayOfWeek === index + 1,
+        )?.errors ?? 0,
+    }));
   }
 }

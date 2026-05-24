@@ -77,6 +77,12 @@ export class Applications extends Model<Applications> {
   @Column(DataType.BOOLEAN)
   declare allowNotifications: boolean;
 
+  declare membershipsCount?: number;
+  declare totalErrors?: number;
+  declare criticalErrors?: number;
+  declare errorsCount?: number;
+  declare criticalCount?: number;
+
   // ======================
   // Relations
   // ======================
