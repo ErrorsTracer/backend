@@ -24,7 +24,12 @@
     "db:test:migrate": "ts-node --project tsconfig.json test/support/db-migrate.ts",
     "db:test:seed": "ts-node --project tsconfig.json test/support/db-seed.ts",
     "db:seed:generate": "sequelize-cli seed:generate --name",
-    "db:seed:run": "sequelize-cli db:seed:all"
+    "db:seed:run": "sequelize-cli db:seed:all",
+    "db:seed:errors:data": "node scripts/generate-dummy-errors.js",
+    "db:seed:application": "sequelize-cli db:seed --seed 20260523110000-production-application.js",
+    "db:seed:application:undo": "sequelize-cli db:seed:undo --seed 20260523110000-production-application.js",
+    "db:seed:errors": "sequelize-cli db:seed --seed 20260523120000-production-errors.js",
+    "db:seed:errors:undo": "sequelize-cli db:seed:undo --seed 20260523120000-production-errors.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

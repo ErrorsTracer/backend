@@ -10,7 +10,14 @@ import {
   IsUUID,
 } from 'class-validator';
 
-export const ERROR_LEVELS = ['fatal', 'error', 'warning', 'info', 'debug'];
+export const ERROR_LEVELS = [
+  'fatal',
+  'error',
+  'warning',
+  'info',
+  'debug',
+  'critical',
+];
 export const ERROR_RUNTIMES = [
   'browser',
   'server',
@@ -47,9 +54,15 @@ export class IngestErrorDto {
   @IsIn(ERROR_LEVELS)
   level?: string;
 
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   message?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  error?: string;
 
   @IsOptional()
   @IsString()

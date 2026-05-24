@@ -45,16 +45,26 @@ export class ErrorsService {
       throw new BadRequestException(ERROR_KEYS.APP_PRODUCTION_DISABLED);
     }
 
+    const message = data.message ?? data.error;
+
+    if (!message) {
+      throw new BadRequestException(ERROR_KEYS.VALIDATION_FAILED);
+    }
+
     const environment = data.environment ?? 'production';
     const level = data.level ?? 'error';
     const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
     const fingerprint =
       data.fingerprint ??
-      generateErrorFingerprint(data, applicationId, environment);
+      generateErrorFingerprint(
+        { ...data, message },
+        applicationId,
+        environment,
+      );
 
     const event = await this.errorsRepository.create({
       applicationId,
-      error: data.message,
+      error: message,
       stack: data.stack ?? null,
       environment,
       framework: data.framework ?? null,

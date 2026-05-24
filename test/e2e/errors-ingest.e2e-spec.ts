@@ -103,6 +103,34 @@ describe('Generic error ingestion API (e2e)', () => {
     });
   });
 
+  it('accepts database-shaped payloads that use error as the message field', async () => {
+    const application = await createIngestionTarget();
+
+    await postIngest(application.appKey, {
+      error: 'Submitted profile payload failed server-side validation',
+      environment: 'production',
+      framework: 'NestJS',
+      language: 'TypeScript',
+      runtime: 'server',
+      level: 'error',
+      name: 'ValidationError',
+      fingerprint: 'dummy:users:validationerror',
+      handled: true,
+      timestamp: '2026-05-20T23:39:27.000Z',
+      transaction: 'PATCH /api/profile',
+      extra: { serverName: 'api-4', durationMs: 4095 },
+    }).expect(201);
+
+    const persisted = await errorsModel.findOne({
+      where: { applicationId: application.id },
+    });
+
+    expect(persisted?.error).toBe(
+      'Submitted profile payload failed server-side validation',
+    );
+    expect(persisted?.fingerprint).toBe('dummy:users:validationerror');
+  });
+
   it('successfully ingests a Laravel/server-style payload', async () => {
     const application = await createIngestionTarget();
 

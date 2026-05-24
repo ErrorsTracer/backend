@@ -8,10 +8,15 @@ import {
   Param,
   Put,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { AuthGuard } from '../auth/auth.guard';
-import { CreateAppDto, InvitePeopleDto } from './applications.dto';
+import {
+  CreateAppDto,
+  GetApplicationErrorsDto,
+  InvitePeopleDto,
+} from './applications.dto';
 import { UnGuard } from '../auth/auth.decorator';
 
 @Controller({ path: 'applications', version: '0.1' })
@@ -40,10 +45,32 @@ export class ApplicationsController {
     return await this.appService.getAppInfo(data, req.user);
   }
 
-  // @Get('/:id/errors')
-  // async getAppErrors(@Param() data: any, @Req() req: any) {
-  //   return await this.appService.getRegisteredErrors(data, req.user);
-  // }
+  @Get('/:id/errors')
+  async getAppErrors(
+    @Param() params: any,
+    @Query() query: GetApplicationErrorsDto,
+    @Req() req: any,
+  ) {
+    return await this.appService.getApplicationErrors(params, query, req.user);
+  }
+
+  @Get('/:id/errors/recent')
+  async getRecentAppErrors(
+    @Param() params: any,
+    @Query() query: GetApplicationErrorsDto,
+    @Req() req: any,
+  ) {
+    return await this.appService.getRecentApplicationErrors(
+      params,
+      query,
+      req.user,
+    );
+  }
+
+  @Get('/:id/errors/:errorId')
+  async getAppErrorDetails(@Param() params: any, @Req() req: any) {
+    return await this.appService.getApplicationErrorDetails(params, req.user);
+  }
 
   @Post('/')
   async createApp(@Body() data: CreateAppDto, @Req() req: any) {
@@ -53,6 +80,11 @@ export class ApplicationsController {
   @Put('/:id/credentials/production')
   async updateProductionMode(@Param() params: any, @Req() req: any) {
     return await this.appService.updateProductionMode(params, req.user);
+  }
+
+  @Put('/:id/credentials/rotate')
+  async rotateAppKey(@Param() params: any, @Req() req: any) {
+    return await this.appService.rotateAppKey(params, req.user);
   }
 
   @Get('/:id/credentials')

@@ -93,6 +93,41 @@ export class ApiLoggerService {
     this.transports = transports ?? createDefaultTransports(this.config);
   }
 
+  async reportError(error: Error, context?: RequestLogContext) {
+    // console.log({
+    //   framework: 'nestjs',
+    //   language: 'typescript',
+    //   runtime: 'node',
+    //   level: 'error',
+    //   message: error.message,
+    //   stack: error.stack,
+    //   environment: process.env.NODE_ENV,
+    // });
+
+    await fetch(
+      'http://localhost:4973/v0.1/errors/ingest',
+
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ErrorTracer-Key': '2jyoiKh7iN0nZ8rmZnUbY7DP83',
+        },
+        body: JSON.stringify({
+          url: context?.url,
+
+          framework: 'nestjs',
+          language: 'typescript',
+          runtime: 'node',
+          level: 'error',
+          message: error.message,
+          stack: error.stack,
+          environment: process.env.NODE_ENV,
+        }),
+      },
+    );
+  }
+
   logRequest(context: RequestLogContext) {
     const level = this.getRequestLevel(context.statusCode);
 

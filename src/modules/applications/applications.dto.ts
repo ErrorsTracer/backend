@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
 } from 'class-validator';
 
 export class CreateAppDto {
@@ -29,4 +30,14 @@ export class InvitePeopleDto {
   @ArrayNotEmpty()
   @IsEmail({}, { each: true })
   declare emails: string[];
+}
+
+export class GetApplicationErrorsDto {
+  @IsOptional()
+  @Matches(/^\d+$/)
+  declare limit?: string;
+
+  @IsOptional()
+  @IsString()
+  declare cursor?: string;
 }

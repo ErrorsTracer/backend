@@ -328,7 +328,59 @@ Run test seeders against the active test database connection:
 bun run db:test:seed
 ```
 
-Current seed data includes application type metadata.
+Current automatic seed data includes application type metadata.
+
+The dummy application and errors seed use
+`d8a04a51-39b5-4a6f-9de5-acda9bfe43f5` by default. To create a different
+application UUID, set `SEED_APPLICATION_ID` before both seed commands.
+
+Create a seeded application with an owner, membership, and enabled production
+environment, then load 1,000 production-like error events into it after the
+framework metadata has already been seeded:
+
+```powershell
+bun run db:seed:errors:data
+bun run db:seed:application
+bun run db:seed:errors
+```
+
+On a fresh database, generate the data and run all configured seeders in
+order:
+
+```powershell
+bun run db:seed:errors:data
+bun run db:seed:run
+```
+
+To select a specific UUID:
+
+```powershell
+$env:SEED_APPLICATION_ID = '<application-uuid>'
+bun run db:seed:run
+```
+
+Or, when framework metadata is already present:
+
+```powershell
+$env:SEED_APPLICATION_ID = '<application-uuid>'
+bun run db:seed:application
+bun run db:seed:errors
+```
+
+The generated dataset is stored at
+`src/database/seeders/data/dummy-errors.json`. It includes `100` fatal,
+`600` error, and `300` warning events; the error seeder assigns every event
+to the default application or the UUID specified by `SEED_APPLICATION_ID`.
+Re-running it for the same application replaces its previous dummy events,
+and seeding another application creates a separate dummy event set.
+
+Remove those dummy events and the seeded application:
+
+```powershell
+$env:SEED_APPLICATION_ID = '<application-uuid>'
+bun run db:seed:errors:undo
+bun run db:seed:application:undo
+```
 
 ## Running the Application
 

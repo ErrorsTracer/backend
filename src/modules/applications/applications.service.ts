@@ -14,6 +14,15 @@ import {
   NotificationType,
 } from '../../common/constants/app.constants';
 import { TransactionManager } from '../../helpers/transaction.helper';
+import { GetApplicationErrorsDto } from './applications.dto';
+
+const DEFAULT_ERRORS_PAGE_LIMIT = 25;
+const MAX_ERRORS_PAGE_LIMIT = 100;
+
+type ErrorPaginationCursor = {
+  createdAt: string;
+  id: string;
+};
 
 @Injectable()
 export class ApplicationsService {
@@ -39,6 +48,94 @@ export class ApplicationsService {
     return await this.applicationsRepository.getApplicationMemberships(
       params.id,
     );
+  }
+
+  async getApplicationErrors(params, query: GetApplicationErrorsDto, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const limit = this.getErrorsPageLimit(query.limit);
+    const cursor = this.decodeErrorsCursor(query.cursor);
+    const errors = await this.applicationsRepository.getErrorsByApplicationId({
+      applicationId: params.id,
+      limit: limit + 1,
+      cursor,
+    });
+    const hasMore = errors.length > limit;
+    const items = hasMore ? errors.slice(0, limit) : errors;
+    const nextCursor = hasMore
+      ? this.encodeErrorsCursor(items[items.length - 1])
+      : null;
+
+    return {
+      data: items,
+      pageInfo: {
+        limit,
+        hasMore,
+        nextCursor,
+      },
+    };
+  }
+
+  async getRecentApplicationErrors(
+    params,
+    query: Pick<GetApplicationErrorsDto, 'limit'>,
+    user,
+  ) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const limit = this.getErrorsPageLimit(query.limit);
+    const errors =
+      await this.applicationsRepository.getRecentErrorsByApplicationId({
+        applicationId: params.id,
+        limit: limit + 1,
+      });
+    const hasMore = errors.length > limit;
+    const data = hasMore ? errors.slice(0, limit) : errors;
+
+    return {
+      data,
+      pageInfo: {
+        limit,
+        hasMore,
+      },
+    };
+  }
+
+  async getApplicationErrorDetails(params, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const error =
+      await this.applicationsRepository.getErrorDetailsByApplicationId({
+        applicationId: params.id,
+        errorId: params.errorId,
+      });
+
+    if (!error) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    return error;
   }
 
   async getFrameworks() {
@@ -86,6 +183,41 @@ export class ApplicationsService {
       appKey: application.environment.appKey,
       isEnabled: application.environment.isEnabled,
       applicationId: application.environment.applicationId,
+    };
+  }
+
+  async rotateAppKey(params, user) {
+    const application = await this.applicationsRepository.getAllAppInfo({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const ownerMembership =
+      await this.applicationsRepository.getOwnerMembershipForApp({
+        applicationId: params.id,
+        userId: user.id,
+      });
+
+    if (!ownerMembership) {
+      throw new ForbiddenException(ERROR_KEYS.APP_STATUS_FORBIDDEN);
+    }
+
+    const environment = await this.applicationsRepository.rotateAppKey(
+      params.id,
+    );
+
+    if (!environment) {
+      throw new NotFoundException(ERROR_KEYS.CREDENTIAL_NOT_FOUND);
+    }
+
+    return {
+      appKey: environment.appKey,
+      isEnabled: environment.isEnabled,
+      applicationId: environment.applicationId,
     };
   }
 
@@ -315,5 +447,64 @@ export class ApplicationsService {
     }
 
     return updatedApplication;
+  }
+
+  private getErrorsPageLimit(limit?: string) {
+    if (!limit) {
+      return DEFAULT_ERRORS_PAGE_LIMIT;
+    }
+
+    const parsedLimit = Number(limit);
+
+    if (
+      !Number.isInteger(parsedLimit) ||
+      parsedLimit < 1 ||
+      parsedLimit > MAX_ERRORS_PAGE_LIMIT
+    ) {
+      throw new BadRequestException(ERROR_KEYS.VALIDATION_FAILED);
+    }
+
+    return parsedLimit;
+  }
+
+  private decodeErrorsCursor(cursor?: string) {
+    if (!cursor) {
+      return undefined;
+    }
+
+    try {
+      const decoded = JSON.parse(
+        Buffer.from(cursor, 'base64url').toString('utf8'),
+      ) as ErrorPaginationCursor;
+      const createdAt = new Date(decoded.createdAt);
+
+      if (
+        !decoded.id ||
+        Number.isNaN(createdAt.getTime()) ||
+        createdAt.toISOString() !== decoded.createdAt
+      ) {
+        throw new Error('Invalid errors cursor');
+      }
+
+      return {
+        createdAt,
+        id: decoded.id,
+      };
+    } catch {
+      throw new BadRequestException(ERROR_KEYS.VALIDATION_FAILED);
+    }
+  }
+
+  private encodeErrorsCursor(error: { createdAt?: Date; id: string }) {
+    if (!error.createdAt) {
+      throw new BadRequestException(ERROR_KEYS.VALIDATION_FAILED);
+    }
+
+    return Buffer.from(
+      JSON.stringify({
+        createdAt: error.createdAt.toISOString(),
+        id: error.id,
+      }),
+    ).toString('base64url');
   }
 }
