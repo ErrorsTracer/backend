@@ -12,6 +12,7 @@ export const ERROR_KEYS = {
   APP_TYPE_NOT_FOUND: 'errors.app.typeNotFound',
   AUTH_REQUIRED: 'errors.auth.required',
   CREDENTIAL_NOT_FOUND: 'errors.credential.notFound',
+  CURRENT_PASSWORD_INCORRECT: 'errors.user.currentPasswordIncorrect',
   EMAIL_ALREADY_EXISTS: 'errors.auth.emailAlreadyExists',
   INCORRECT_CREDENTIALS: 'errors.auth.incorrectCredentials',
   INVALID_REFRESH_TOKEN: 'errors.auth.invalidRefreshToken',
@@ -21,6 +22,7 @@ export const ERROR_KEYS = {
   NOTIFICATION_NOT_FOUND: 'errors.notification.notFound',
   ORGANIZATION_KEY_INVALID: 'errors.organization.keyInvalid',
   ORGANIZATION_UNAVAILABLE: 'errors.organization.unavailable',
+  PASSWORD_CONFIRMATION_MISMATCH: 'errors.user.passwordConfirmationMismatch',
   USER_NOT_FOUND: 'errors.user.notFound',
   VALIDATION_FAILED: 'errors.validation.failed',
 } as const;

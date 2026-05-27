@@ -409,6 +409,54 @@ describe('Applications API (e2e)', () => {
         expect(typeof listedApplication.criticalErrors).toBe('number');
       });
 
+    const secondApplication = await createApplicationFixture(context, owner);
+    await enableProductionEnvironment(context, owner, secondApplication.id);
+
+    await request(context.httpServer)
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', secondApplication.appKey)
+      .send({
+        projectId: secondApplication.id,
+        message: 'SecondAppCriticalErrorSmoke',
+        level: 'critical',
+      })
+      .expect(201);
+
+    await request(context.httpServer)
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', secondApplication.appKey)
+      .send({
+        projectId: secondApplication.id,
+        message: 'SecondAppNormalErrorSmoke',
+      })
+      .expect(201);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/severity-distribution')
+      .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/severity-distribution')
+      .set(authHeader(member.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          criticalErrorsCount: 0,
+          totalErrorsCount: 0,
+        });
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/severity-distribution')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          criticalErrorsCount: 2,
+          totalErrorsCount: 7,
+        });
+      });
+
     await request(context.httpServer)
       .delete(`/v0.1/applications/${application.id}`)
       .set(authHeader(member.accessToken))
@@ -471,6 +519,88 @@ describe('Applications API (e2e)', () => {
           thisWeek,
           lastWeek,
         });
+      });
+  });
+
+  it('reports usage for an application across credential rotations', async () => {
+    const owner = await registerAndLogin(context.httpServer, 'usage-owner');
+    const stranger = await registerAndLogin(
+      context.httpServer,
+      'usage-stranger',
+    );
+    const application = await createApplicationFixture(context, owner);
+    await enableProductionEnvironment(context, owner, application.id);
+
+    const firstPayload = {
+      projectId: application.id,
+      message: 'Usage before rotation',
+    };
+    await request(context.httpServer)
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', application.appKey)
+      .send(firstPayload)
+      .expect(201);
+
+    const rotated = await request(context.httpServer)
+      .put(`/v0.1/applications/${application.id}/credentials/rotate`)
+      .set(authHeader(owner.accessToken))
+      .expect(200);
+    const secondPayload = {
+      projectId: application.id,
+      message: 'Usage after rotation',
+    };
+    await request(context.httpServer)
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', rotated.body.appKey)
+      .send(secondPayload)
+      .expect(201);
+
+    await request(context.httpServer)
+      .get(`/v0.1/applications/${application.id}/usage`)
+      .set(authHeader(stranger.accessToken))
+      .expect(404);
+
+    await request(context.httpServer)
+      .get(`/v0.1/applications/${application.id}/usage`)
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          totalErrorBytes: String(
+            Buffer.byteLength(JSON.stringify(firstPayload), 'utf8') +
+              Buffer.byteLength(JSON.stringify(secondPayload), 'utf8'),
+          ),
+          totalErrorCount: '2',
+        });
+      });
+
+    const expectedUsage = {
+      totalErrorBytes: String(
+        Buffer.byteLength(JSON.stringify(firstPayload), 'utf8') +
+          Buffer.byteLength(JSON.stringify(secondPayload), 'utf8'),
+      ),
+      totalErrorCount: '2',
+    };
+
+    await request(context.httpServer)
+      .get('/v0.1/users/usage')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual(expectedUsage);
+      });
+
+    await request(context.httpServer)
+      .delete(`/v0.1/applications/${application.id}`)
+      .set(authHeader(owner.accessToken))
+      .expect(200);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/usage')
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual(expectedUsage);
       });
   });
 });

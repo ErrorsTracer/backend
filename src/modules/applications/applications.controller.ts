@@ -40,6 +40,11 @@ export class ApplicationsController {
     return await this.appService.getFrameworks();
   }
 
+  @Get('/errors/severity-distribution')
+  async getErrorsSeverityDistribution(@Req() req: any) {
+    return await this.appService.getErrorsSeverityDistribution(req.user);
+  }
+
   @Get('/:id')
   async getAppInfo(@Param() data: any, @Req() req: any) {
     return await this.appService.getAppInfo(data, req.user);
@@ -70,6 +75,11 @@ export class ApplicationsController {
   @Get('/:id/errors/report')
   async getAppErrorsReport(@Param() params: any, @Req() req: any) {
     return await this.appService.getApplicationErrorsReport(params, req.user);
+  }
+
+  @Get('/:id/usage')
+  async getAppUsage(@Param() params: any, @Req() req: any) {
+    return await this.appService.getApplicationUsage(params, req.user);
   }
 
   @Get('/:id/errors/:errorId')

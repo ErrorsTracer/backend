@@ -3,7 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes, randomUUID } from 'crypto';
 
 // Generate a salt (a random value) to use in the hashing process
-const saltRounds = 0; // You can adjust the number of salt rounds
+const saltRounds = 10;
 
 // Hash the password using bcrypt
 export const hashPassword = (password: string) =>

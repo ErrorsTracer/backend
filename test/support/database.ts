@@ -5,6 +5,7 @@ import { Applications } from '../../src/database/models/applications.model';
 import { AuthSessions } from '../../src/database/models/auth-sessions.model';
 import { Environments } from '../../src/database/models/environments.model';
 import { Errors } from '../../src/database/models/errors.model';
+import { Usage } from '../../src/database/models/usage.model';
 import { Notifications } from '../../src/database/models/notifications.model';
 import { Users } from '../../src/database/models/users.model';
 
@@ -16,6 +17,7 @@ export const testModels = [
   Environments,
   Notifications,
   Errors,
+  Usage,
   AuthSessions,
 ];
 

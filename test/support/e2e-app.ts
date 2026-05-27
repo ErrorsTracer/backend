@@ -25,7 +25,7 @@ export async function createE2eApp(): Promise<E2eAppContext> {
     imports: [AppModule],
   }).compile();
 
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication({ rawBody: true });
   const apiLogger = new ApiLoggerService({}, []);
   const localizationService = new LocalizationService();
 

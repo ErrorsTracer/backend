@@ -15,6 +15,7 @@ import { ApplicationMembership } from './application-membership.model';
 import bcrypt from 'bcrypt';
 import { UserProvider } from '../../common/constants/app.constants';
 import { Notifications } from './notifications.model';
+import { Usage } from './usage.model';
 
 @Table({
   tableName: 'users',
@@ -89,6 +90,12 @@ export class Users extends Model<Users> {
 
   @HasMany(() => Notifications, 'userId')
   declare notifications: Notifications[];
+
+  @HasMany(() => Usage, {
+    foreignKey: 'userId',
+    constraints: false,
+  })
+  declare usage: Usage[];
 
   // hooks to normalize email and handle UUID generation
   @BeforeCreate

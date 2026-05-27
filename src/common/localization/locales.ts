@@ -10,6 +10,9 @@ export const ERROR_MESSAGES: Record<
   Record<ErrorKey, string>
 > = {
   en: {
+    [ERROR_KEYS.CURRENT_PASSWORD_INCORRECT]: 'Current password is incorrect!',
+    [ERROR_KEYS.PASSWORD_CONFIRMATION_MISMATCH]:
+      'New password confirmation does not match!',
     [ERROR_KEYS.APP_ALREADY_EXISTS]: 'This app already exists!',
     [ERROR_KEYS.APP_CREATE_FORBIDDEN]:
       'You do not have permissions to create apps for this organization!',
@@ -44,6 +47,9 @@ export const ERROR_MESSAGES: Record<
     [ERROR_KEYS.VALIDATION_FAILED]: 'Validation failed!',
   },
   ar: {
+    [ERROR_KEYS.CURRENT_PASSWORD_INCORRECT]: 'Current password is incorrect!',
+    [ERROR_KEYS.PASSWORD_CONFIRMATION_MISMATCH]:
+      'New password confirmation does not match!',
     [ERROR_KEYS.APP_ALREADY_EXISTS]: 'هذا التطبيق موجود بالفعل!',
     [ERROR_KEYS.APP_CREATE_FORBIDDEN]:
       'ليس لديك صلاحية إنشاء تطبيقات لهذه المنظمة!',

@@ -22,7 +22,7 @@ async function bootstrap() {
   dotenv.config();
 
   // create the app
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const apiLogger = new ApiLoggerService();
   const localizationService = new LocalizationService();
 

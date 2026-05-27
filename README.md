@@ -591,6 +591,43 @@ Common error responses:
 
 Sensitive keys are redacted recursively before persistence, including authorization, cookie, password, token, accessToken, refreshToken, apiKey, and secret.
 
+Each accepted ingest event records payload usage atomically with the saved error. Example Sequelize queries:
+
+```ts
+import { col, fn, Op } from 'sequelize';
+import { Usage } from './src/database/models/usage.model';
+
+const totalsByApp = await Usage.findAll({
+  attributes: [
+    'applicationId',
+    [fn('SUM', col('payloadSizeBytes')), 'totalPayloadSizeBytes'],
+  ],
+  group: ['applicationId'],
+  raw: true,
+});
+
+const totalForRange = await Usage.sum('payloadSizeBytes', {
+  where: {
+    applicationId,
+    createdAt: { [Op.between]: [startDate, endDate] },
+  },
+});
+```
+
+Authenticated application members can read aggregated payload usage with:
+
+```http
+GET /v0.1/applications/<application-id>/usage
+Authorization: Bearer <access-token>
+```
+
+```json
+{
+  "totalPayloadSizeBytes": 2048,
+  "ingestedErrors": 12
+}
+```
+
 The previous `POST /v0.1/registry/react` endpoint is retained only as a deprecated compatibility route. New clients should use `POST /v0.1/errors/ingest` and pass framework-specific details through generic payload fields.
 
 ## CI/CD Notes

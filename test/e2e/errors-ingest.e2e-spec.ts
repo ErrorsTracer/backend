@@ -1,6 +1,8 @@
 import { getModelToken } from '@nestjs/sequelize';
 import request from 'supertest';
 import { Errors } from '../../src/database/models/errors.model';
+import { Usage } from '../../src/database/models/usage.model';
+import { UsageRepository } from '../../src/modules/usage/usage.repo';
 import { registerAndLogin } from '../support/auth';
 import { resetTestData } from '../support/db-reset';
 import { createE2eApp, E2eAppContext } from '../support/e2e-app';
@@ -12,10 +14,12 @@ import {
 describe('Generic error ingestion API (e2e)', () => {
   let context: E2eAppContext;
   let errorsModel: typeof Errors;
+  let usageModel: typeof Usage;
 
   beforeAll(async () => {
     context = await createE2eApp();
     errorsModel = context.app.get<typeof Errors>(getModelToken(Errors));
+    usageModel = context.app.get<typeof Usage>(getModelToken(Usage));
   });
 
   beforeEach(async () => {
@@ -43,16 +47,32 @@ describe('Generic error ingestion API (e2e)', () => {
 
   it('successfully ingests a minimal valid error payload', async () => {
     const application = await createIngestionTarget();
-
-    const response = await postIngest(application.appKey, {
+    const payload = {
       projectId: application.id,
       message: 'Unhandled TypeError',
-    }).expect(201);
+    };
+
+    const response = await postIngest(application.appKey, payload).expect(201);
 
     expect(response.body).toEqual({
       id: expect.any(String),
       status: 'accepted',
     });
+
+    const usage = await usageModel.findOne({
+      where: { applicationId: application.id },
+    });
+
+    expect(usage).toEqual(
+      expect.objectContaining({
+        applicationId: application.id,
+        userId: expect.any(String),
+        totalErrorBytes: String(
+          Buffer.byteLength(JSON.stringify(payload), 'utf8'),
+        ),
+        totalErrorCount: '1',
+      }),
+    );
   });
 
   it('successfully ingests a rich React/browser payload', async () => {
@@ -101,6 +121,75 @@ describe('Generic error ingestion API (e2e)', () => {
       region: 'us-east-1',
       feature: 'billing',
     });
+  });
+
+  it('tracks the raw request body size when it is available', async () => {
+    const application = await createIngestionTarget();
+    const rawPayload = `{
+  "projectId": "${application.id}",
+  "message": "Raw body size smoke"
+}`;
+
+    await request(context.httpServer)
+      .post('/v0.1/errors/ingest')
+      .set('X-ErrorTracer-Key', application.appKey)
+      .set('Content-Type', 'application/json')
+      .send(rawPayload)
+      .expect(201);
+
+    const usage = await usageModel.findOne({
+      where: { applicationId: application.id },
+    });
+
+    expect(usage?.totalErrorBytes).toBe(
+      String(Buffer.byteLength(rawPayload, 'utf8')),
+    );
+  });
+
+  it('rolls back the error when usage persistence fails', async () => {
+    const application = await createIngestionTarget();
+    const usageCreate = jest
+      .spyOn(UsageRepository.prototype, 'incrementForApplication')
+      .mockRejectedValueOnce(new Error('usage persistence failed'));
+
+    try {
+      await postIngest(application.appKey, {
+        projectId: application.id,
+        message: 'Atomic ingest smoke',
+      }).expect(500);
+
+      expect(await errorsModel.count()).toBe(0);
+      expect(await usageModel.count()).toBe(0);
+    } finally {
+      usageCreate.mockRestore();
+    }
+  });
+
+  it('increments one aggregate row safely for concurrent ingestion', async () => {
+    const application = await createIngestionTarget('concurrent-owner');
+    const payloads = Array.from({ length: 20 }, (_, index) => ({
+      projectId: application.id,
+      message: `Concurrent ingestion ${index}`,
+    }));
+
+    await Promise.all(
+      payloads.map((payload) =>
+        postIngest(application.appKey, payload).expect(201),
+      ),
+    );
+
+    const usages = await usageModel.findAll({
+      where: { applicationId: application.id },
+    });
+    const expectedBytes = payloads.reduce(
+      (total, payload) =>
+        total + Buffer.byteLength(JSON.stringify(payload), 'utf8'),
+      0,
+    );
+
+    expect(usages).toHaveLength(1);
+    expect(usages[0].totalErrorCount).toBe('20');
+    expect(usages[0].totalErrorBytes).toBe(String(expectedBytes));
   });
 
   it('accepts database-shaped payloads that use error as the message field', async () => {
@@ -255,6 +344,8 @@ describe('Generic error ingestion API (e2e)', () => {
       projectId: application.id,
       message: 'Invalid key smoke',
     }).expect(401);
+
+    expect(await usageModel.count()).toBe(0);
   });
 
   it('rejects projectId/key mismatch when both are provided', async () => {

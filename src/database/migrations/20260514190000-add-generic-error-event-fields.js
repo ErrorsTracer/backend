@@ -3,86 +3,55 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('errors-logs', 'environment', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'framework', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'language', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'runtime', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'level', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'name', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'fingerprint', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'handled', {
-      type: Sequelize.BOOLEAN,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'timestamp', {
-      type: Sequelize.DATE,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'release', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'url', {
-      type: Sequelize.TEXT,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'transaction', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'user', {
-      type: Sequelize.JSONB,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'request', {
-      type: Sequelize.JSONB,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'tags', {
-      type: Sequelize.JSONB,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'extra', {
-      type: Sequelize.JSONB,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'breadcrumbs', {
-      type: Sequelize.JSONB,
-      allowNull: true,
-    });
-    await queryInterface.addColumn('errors-logs', 'contexts', {
-      type: Sequelize.JSONB,
-      allowNull: true,
-    });
+    const existingColumns = await queryInterface.describeTable('errors-logs');
+    const columns = {
+      environment: Sequelize.STRING,
+      framework: Sequelize.STRING,
+      language: Sequelize.STRING,
+      runtime: Sequelize.STRING,
+      level: Sequelize.STRING,
+      name: Sequelize.STRING,
+      fingerprint: Sequelize.STRING,
+      handled: Sequelize.BOOLEAN,
+      timestamp: Sequelize.DATE,
+      release: Sequelize.STRING,
+      url: Sequelize.TEXT,
+      transaction: Sequelize.STRING,
+      user: Sequelize.JSONB,
+      request: Sequelize.JSONB,
+      tags: Sequelize.JSONB,
+      extra: Sequelize.JSONB,
+      breadcrumbs: Sequelize.JSONB,
+      contexts: Sequelize.JSONB,
+    };
 
-    await queryInterface.addIndex('errors-logs', ['applicationId']);
-    await queryInterface.addIndex('errors-logs', ['environment']);
-    await queryInterface.addIndex('errors-logs', ['level']);
-    await queryInterface.addIndex('errors-logs', ['timestamp']);
-    await queryInterface.addIndex('errors-logs', ['createdAt']);
-    await queryInterface.addIndex('errors-logs', ['fingerprint']);
-    await queryInterface.addIndex('errors-logs', ['framework']);
+    for (const [columnName, type] of Object.entries(columns)) {
+      if (!existingColumns[columnName]) {
+        await queryInterface.addColumn('errors-logs', columnName, {
+          type,
+          allowNull: true,
+        });
+      }
+    }
+
+    const indexes = await queryInterface.showIndex('errors-logs');
+    const indexedColumns = new Set(
+      indexes.flatMap((index) => index.fields.map((field) => field.attribute)),
+    );
+
+    for (const columnName of [
+      'applicationId',
+      'environment',
+      'level',
+      'timestamp',
+      'createdAt',
+      'fingerprint',
+      'framework',
+    ]) {
+      if (!indexedColumns.has(columnName)) {
+        await queryInterface.addIndex('errors-logs', [columnName]);
+      }
+    }
   },
 
   async down(queryInterface) {

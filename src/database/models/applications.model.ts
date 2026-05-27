@@ -19,6 +19,7 @@ import { Errors } from './errors.model';
 import { Frameworks } from './frameworks.model';
 import { Users } from './users.model';
 import { Notifications } from './notifications.model';
+import { Usage } from './usage.model';
 import {
   ApplicationMembershipStatus,
   ApplicationStatus,
@@ -117,6 +118,12 @@ export class Applications extends Model<Applications> {
 
   @HasMany(() => Errors)
   declare errors: Errors[];
+
+  @HasOne(() => Usage, {
+    foreignKey: 'applicationId',
+    constraints: false,
+  })
+  declare usage: Usage | null;
 
   @Index
   @ForeignKey(() => Frameworks)

@@ -15,6 +15,7 @@ import {
 } from '../../common/constants/app.constants';
 import { TransactionManager } from '../../helpers/transaction.helper';
 import { GetApplicationErrorsDto } from './applications.dto';
+import { UsageRepository } from '../usage/usage.repo';
 
 const DEFAULT_ERRORS_PAGE_LIMIT = 25;
 const MAX_ERRORS_PAGE_LIMIT = 100;
@@ -30,6 +31,7 @@ export class ApplicationsService {
   constructor(
     private applicationsRepository: ApplicationsRepository,
     private transactionManager: TransactionManager,
+    private usageRepository: UsageRepository,
   ) {}
 
   async getMyApps(user) {
@@ -160,8 +162,27 @@ export class ApplicationsService {
     };
   }
 
+  async getApplicationUsage(params, user) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    return await this.usageRepository.getByApplication(params.id);
+  }
+
   async getFrameworks() {
     return await this.applicationsRepository.getFrameworks();
+  }
+
+  async getErrorsSeverityDistribution(user) {
+    return await this.applicationsRepository.getErrorsSeverityDistributionByUserId(
+      user.id,
+    );
   }
 
   async updateProductionMode(params, user) {

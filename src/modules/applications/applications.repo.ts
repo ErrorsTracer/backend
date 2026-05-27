@@ -346,6 +346,39 @@ export class ApplicationsRepository {
     return applications;
   }
 
+  async getErrorsSeverityDistributionByUserId(userId: string) {
+    const applications = await this.appsRepository
+      .scope({ method: ['associatedWithUser', userId] })
+      .findAll({
+        attributes: ['id'],
+      });
+    const applicationIds = applications.map((application) => application.id);
+
+    if (applicationIds.length === 0) {
+      return {
+        criticalErrorsCount: 0,
+        totalErrorsCount: 0,
+      };
+    }
+
+    const [criticalErrorsCount, totalErrorsCount] = await Promise.all([
+      this.errorsRepository.count({
+        where: {
+          applicationId: { [Op.in]: applicationIds },
+          level: { [Op.in]: ['fatal', 'critical'] },
+        },
+      }),
+      this.errorsRepository.count({
+        where: { applicationId: { [Op.in]: applicationIds } },
+      }),
+    ]);
+
+    return {
+      criticalErrorsCount,
+      totalErrorsCount,
+    };
+  }
+
   async getAppByNameForUser({ name, userId }: GetAppByNameForUserData) {
     return await this.appsRepository
       .scope({ method: ['associatedWithUser', userId] })
