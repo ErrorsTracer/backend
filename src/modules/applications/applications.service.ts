@@ -14,7 +14,10 @@ import {
   NotificationType,
 } from '../../common/constants/app.constants';
 import { TransactionManager } from '../../helpers/transaction.helper';
-import { GetApplicationErrorsDto } from './applications.dto';
+import {
+  GetApplicationErrorsDto,
+  GetApplicationTopAffectedRoutesDto,
+} from './applications.dto';
 import { UsageRepository } from '../usage/usage.repo';
 
 const DEFAULT_ERRORS_PAGE_LIMIT = 25;
@@ -162,6 +165,45 @@ export class ApplicationsService {
     };
   }
 
+  async getApplicationTopAffectedRoutes(
+    params,
+    query: GetApplicationTopAffectedRoutesDto,
+    user,
+  ) {
+    const application = await this.applicationsRepository.getAppByIdForUser({
+      applicationId: params.id,
+      userId: user.id,
+    });
+
+    if (!application) {
+      throw new NotFoundException(ERROR_KEYS.APP_NOT_FOUND);
+    }
+
+    const limit = this.getErrorsPageLimit(query.limit);
+    const data =
+      await this.applicationsRepository.getTopAffectedRoutesByApplicationId({
+        applicationId: params.id,
+        limit,
+      });
+
+    return {
+      data,
+      pageInfo: {
+        limit,
+      },
+    };
+  }
+
+  async getMyApplicationsErrorsReport(user) {
+    const weeklyCounts =
+      await this.applicationsRepository.getWeeklyErrorReportByOwnerId(user.id);
+
+    return {
+      thisWeek: this.formatWeeklyErrorCounts(weeklyCounts, 'thisWeek'),
+      lastWeek: this.formatWeeklyErrorCounts(weeklyCounts, 'lastWeek'),
+    };
+  }
+
   async getApplicationUsage(params, user) {
     const application = await this.applicationsRepository.getAppByIdForUser({
       applicationId: params.id,
@@ -199,7 +241,7 @@ export class ApplicationsService {
       applicationId: params.id,
       isEnabled: !application.environment.isEnabled,
     });
-
+ 
     if (!environment) {
       throw new NotFoundException(ERROR_KEYS.CREDENTIAL_NOT_FOUND);
     }

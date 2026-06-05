@@ -189,7 +189,11 @@ describe('Applications API (e2e)', () => {
     await request(context.httpServer)
       .post('/v0.1/errors/ingest')
       .set('X-ErrorTracer-Key', appKey)
-      .send({ projectId: application.id, message: 'NormalErrorSmoke' })
+      .send({
+        projectId: application.id,
+        message: 'NormalErrorSmoke',
+        transaction: 'GET /dashboard',
+      })
       .expect(201);
 
     await request(context.httpServer)
@@ -199,6 +203,7 @@ describe('Applications API (e2e)', () => {
         projectId: application.id,
         message: 'CriticalErrorSmoke',
         level: 'fatal',
+        transaction: 'GET /dashboard',
       })
       .expect(201);
 
@@ -209,6 +214,7 @@ describe('Applications API (e2e)', () => {
         projectId: application.id,
         message: 'WarningErrorSmoke',
         level: 'warning',
+        url: 'https://example.com/settings',
       })
       .expect(201);
 
@@ -220,6 +226,7 @@ describe('Applications API (e2e)', () => {
         message: 'NamedErrorSmoke',
         name: 'RepeatedTypeErrorSmoke',
         level: 'error',
+        request: { url: '/api/profile' },
       })
       .expect(201);
 
@@ -231,6 +238,7 @@ describe('Applications API (e2e)', () => {
         message: 'NamedErrorSmokeAgain',
         name: 'RepeatedTypeErrorSmoke',
         level: 'error',
+        request: { url: '/api/profile' },
       })
       .expect(201);
 
@@ -334,6 +342,37 @@ describe('Applications API (e2e)', () => {
           ),
         ).toHaveLength(1);
         expect(typeof body.data[0].repeated).toBe('number');
+      });
+
+    await request(context.httpServer)
+      .get(`/v0.1/applications/${application.id}/errors/top-affected-routes`)
+      .set(authHeader(member.accessToken))
+      .expect(404);
+
+    await request(context.httpServer)
+      .get(
+        `/v0.1/applications/${application.id}/errors/top-affected-routes?limit=2`,
+      )
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          data: [
+            {
+              route: '/api/profile',
+              errors: 2,
+              lastSeenAt: expect.any(String),
+            },
+            {
+              route: 'GET /dashboard',
+              errors: 2,
+              lastSeenAt: expect.any(String),
+            },
+          ],
+          pageInfo: {
+            limit: 2,
+          },
+        });
       });
 
     const repeatedError = firstErrorsPage.body.data.find(
@@ -512,6 +551,89 @@ describe('Applications API (e2e)', () => {
 
     await request(context.httpServer)
       .get(`/v0.1/applications/${application.id}/errors/report`)
+      .set(authHeader(owner.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          thisWeek,
+          lastWeek,
+        });
+      });
+  });
+
+  it('reports errors across applications owned by the user only', async () => {
+    const owner = await registerAndLogin(context.httpServer, 'owned-report');
+    const otherOwner = await registerAndLogin(
+      context.httpServer,
+      'owned-report-other',
+    );
+    const firstApplication = await createApplicationFixture(context, owner);
+    const secondApplication = await createApplicationFixture(context, owner);
+    const memberOnlyApplication = await createApplicationFixture(
+      context,
+      otherOwner,
+    );
+
+    await enableProductionEnvironment(context, owner, firstApplication.id);
+    await enableProductionEnvironment(context, owner, secondApplication.id);
+    await enableProductionEnvironment(
+      context,
+      otherOwner,
+      memberOnlyApplication.id,
+    );
+    await inviteUserToApplication(
+      context,
+      otherOwner,
+      memberOnlyApplication.id,
+      owner.email,
+    );
+    const invitationsResponse = await request(context.httpServer)
+      .get('/v0.1/users/membership-invitations')
+      .set(authHeader(owner.accessToken))
+      .expect(200);
+    await request(context.httpServer)
+      .patch(
+        `/v0.1/users/membership-invitations/${invitationsResponse.body[0].id}/accept`,
+      )
+      .set(authHeader(owner.accessToken))
+      .expect(200);
+
+    for (const application of [
+      firstApplication,
+      firstApplication,
+      secondApplication,
+      secondApplication,
+      secondApplication,
+      memberOnlyApplication,
+      memberOnlyApplication,
+      memberOnlyApplication,
+      memberOnlyApplication,
+      memberOnlyApplication,
+    ]) {
+      await request(context.httpServer)
+        .post('/v0.1/errors/ingest')
+        .set('X-ErrorTracer-Key', application.appKey)
+        .send({
+          projectId: application.id,
+          message: `Combined report smoke ${application.id}`,
+        })
+        .expect(201);
+    }
+
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayIndex = (new Date().getUTCDay() + 6) % 7;
+    const thisWeek = days.map((day, index) => ({
+      day,
+      errors: index === todayIndex ? 5 : 0,
+    }));
+    const lastWeek = days.map((day) => ({ day, errors: 0 }));
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/report')
+      .expect(401);
+
+    await request(context.httpServer)
+      .get('/v0.1/applications/errors/report')
       .set(authHeader(owner.accessToken))
       .expect(200)
       .expect(({ body }) => {

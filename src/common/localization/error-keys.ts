@@ -18,11 +18,13 @@ export const ERROR_KEYS = {
   INVALID_REFRESH_TOKEN: 'errors.auth.invalidRefreshToken',
   INVALID_TOKEN: 'errors.auth.invalidToken',
   INVALID_TOKEN_PAYLOAD: 'errors.auth.invalidTokenPayload',
+  MEMBERSHIP_INVITATION_NOT_FOUND: 'errors.membership.invitationNotFound',
   NO_REFRESH_TOKEN: 'errors.auth.noRefreshToken',
   NOTIFICATION_NOT_FOUND: 'errors.notification.notFound',
   ORGANIZATION_KEY_INVALID: 'errors.organization.keyInvalid',
   ORGANIZATION_UNAVAILABLE: 'errors.organization.unavailable',
   PASSWORD_CONFIRMATION_MISMATCH: 'errors.user.passwordConfirmationMismatch',
+  SESSION_NOT_FOUND: 'errors.auth.sessionNotFound',
   USER_NOT_FOUND: 'errors.user.notFound',
   VALIDATION_FAILED: 'errors.validation.failed',
 } as const;

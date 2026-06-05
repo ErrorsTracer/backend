@@ -1,5 +1,6 @@
 import {
   Injectable,
+  NotFoundException,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -13,7 +14,7 @@ import { AuthRepository } from './auth.repo';
 import { randomUUID } from 'crypto';
 import { ERROR_KEYS } from '../../common/localization/error-keys';
 import { AUTH_CONSTANTS } from '../../common/constants/app.constants';
-import { AuthSessionRecord } from './auth.types';
+import { AuthSessionRecord, AuthSessionSummary } from './auth.types';
 
 @Injectable()
 export class AuthService {
@@ -114,6 +115,33 @@ export class AuthService {
 
     if (!revoked) {
       throw new UnauthorizedException(ERROR_KEYS.INVALID_REFRESH_TOKEN);
+    }
+  }
+
+  async listActiveSessions(session: AuthSessionRecord) {
+    const sessions = await this.authRepository.listActiveSessionsByUserId(
+      session.userId,
+    );
+
+    return sessions.map((activeSession: AuthSessionSummary) => ({
+      id: activeSession.id,
+      userId: activeSession.userId,
+      expiresAt: activeSession.expiresAt,
+      revokedAt: activeSession.revokedAt,
+      createdAt: activeSession.createdAt,
+      updatedAt: activeSession.updatedAt,
+      isCurrent: activeSession.id === session.id,
+    }));
+  }
+
+  async revokeUserSession(userId: string, sessionId: string) {
+    const revoked = await this.authRepository.revokeUserSession(
+      userId,
+      sessionId,
+    );
+
+    if (!revoked) {
+      throw new NotFoundException(ERROR_KEYS.SESSION_NOT_FOUND);
     }
   }
 

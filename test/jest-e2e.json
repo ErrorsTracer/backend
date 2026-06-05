@@ -5,7 +5,7 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "testEnvironment": "node",
+  "testEnvironment": "<rootDir>/test/bun-jest-node-environment.js",
   "globalSetup": "<rootDir>/test/global-setup.ts",
   "globalTeardown": "<rootDir>/test/global-teardown.ts",
   "setupFiles": ["<rootDir>/test/setup-env.ts"],

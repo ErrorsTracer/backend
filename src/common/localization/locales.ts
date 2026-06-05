@@ -13,6 +13,7 @@ export const ERROR_MESSAGES: Record<
     [ERROR_KEYS.CURRENT_PASSWORD_INCORRECT]: 'Current password is incorrect!',
     [ERROR_KEYS.PASSWORD_CONFIRMATION_MISMATCH]:
       'New password confirmation does not match!',
+    [ERROR_KEYS.SESSION_NOT_FOUND]: 'Session not found!',
     [ERROR_KEYS.APP_ALREADY_EXISTS]: 'This app already exists!',
     [ERROR_KEYS.APP_CREATE_FORBIDDEN]:
       'You do not have permissions to create apps for this organization!',
@@ -38,6 +39,8 @@ export const ERROR_MESSAGES: Record<
     [ERROR_KEYS.INVALID_REFRESH_TOKEN]: 'Invalid or expired refresh token!',
     [ERROR_KEYS.INVALID_TOKEN]: 'Invalid token or expired, please login again!',
     [ERROR_KEYS.INVALID_TOKEN_PAYLOAD]: 'Invalid token payload!',
+    [ERROR_KEYS.MEMBERSHIP_INVITATION_NOT_FOUND]:
+      'Membership invitation not found!',
     [ERROR_KEYS.NO_REFRESH_TOKEN]: 'No refresh token provided!',
     [ERROR_KEYS.NOTIFICATION_NOT_FOUND]: 'Notification not found!',
     [ERROR_KEYS.ORGANIZATION_KEY_INVALID]: 'Organization key is invalid!',
@@ -50,6 +53,7 @@ export const ERROR_MESSAGES: Record<
     [ERROR_KEYS.CURRENT_PASSWORD_INCORRECT]: 'Current password is incorrect!',
     [ERROR_KEYS.PASSWORD_CONFIRMATION_MISMATCH]:
       'New password confirmation does not match!',
+    [ERROR_KEYS.SESSION_NOT_FOUND]: 'Session not found!',
     [ERROR_KEYS.APP_ALREADY_EXISTS]: 'هذا التطبيق موجود بالفعل!',
     [ERROR_KEYS.APP_CREATE_FORBIDDEN]:
       'ليس لديك صلاحية إنشاء تطبيقات لهذه المنظمة!',
@@ -76,6 +80,8 @@ export const ERROR_MESSAGES: Record<
     [ERROR_KEYS.INVALID_TOKEN]:
       'الرمز غير صالح أو انتهت صلاحيته، يرجى تسجيل الدخول مرة أخرى!',
     [ERROR_KEYS.INVALID_TOKEN_PAYLOAD]: 'بيانات الرمز غير صالحة!',
+    [ERROR_KEYS.MEMBERSHIP_INVITATION_NOT_FOUND]:
+      'Membership invitation not found!',
     [ERROR_KEYS.NO_REFRESH_TOKEN]: 'لم يتم إرسال رمز التحديث!',
     [ERROR_KEYS.NOTIFICATION_NOT_FOUND]: 'Notification not found!',
     [ERROR_KEYS.ORGANIZATION_KEY_INVALID]: 'مفتاح المنظمة غير صالح!',

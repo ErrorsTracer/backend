@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { getModelToken } from '@nestjs/sequelize';
 import { AuthSessions } from '../../src/database/models/auth-sessions.model';
-import { registerAndLogin } from '../support/auth';
+import { loginUser, registerAndLogin, registerUser } from '../support/auth';
 import { createE2eApp, E2eAppContext } from '../support/e2e-app';
 import { resetTestData } from '../support/db-reset';
 import { authHeader } from '../support/http';
@@ -70,6 +70,104 @@ describe('Auth API (e2e)', () => {
       .post('/v0.1/auth/refresh')
       .set('Cookie', owner.cookie)
       .expect(401);
+  });
+
+  it('lists active sessions for the current user', async () => {
+    const user = await registerUser(context.httpServer, 'owner');
+    const firstSession = await loginUser(
+      context.httpServer,
+      user.email,
+      user.password,
+    );
+    const secondSession = await loginUser(
+      context.httpServer,
+      user.email,
+      user.password,
+    );
+    const firstPayload = jwtService.decode(firstSession.accessToken);
+    const secondPayload = jwtService.decode(secondSession.accessToken);
+
+    const response = await request(context.httpServer)
+      .get('/v0.1/auth/sessions')
+      .set(authHeader(secondSession.accessToken))
+      .expect(200);
+
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: firstPayload.sessionId,
+          userId: firstPayload.sub,
+          revokedAt: null,
+          expiresAt: expect.any(String),
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+          isCurrent: false,
+        }),
+        expect.objectContaining({
+          id: secondPayload.sessionId,
+          userId: secondPayload.sub,
+          revokedAt: null,
+          expiresAt: expect.any(String),
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+          isCurrent: true,
+        }),
+      ]),
+    );
+    expect(response.body).toHaveLength(2);
+    expect(response.body[0]).not.toHaveProperty('refreshTokenHash');
+  });
+
+  it('revokes an active session owned by the current user', async () => {
+    const user = await registerUser(context.httpServer, 'owner');
+    const firstSession = await loginUser(
+      context.httpServer,
+      user.email,
+      user.password,
+    );
+    const secondSession = await loginUser(
+      context.httpServer,
+      user.email,
+      user.password,
+    );
+    const firstPayload = jwtService.decode(firstSession.accessToken);
+
+    await request(context.httpServer)
+      .delete(`/v0.1/auth/sessions/${firstPayload.sessionId}`)
+      .set(authHeader(secondSession.accessToken))
+      .expect(204);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/profile')
+      .set(authHeader(firstSession.accessToken))
+      .expect(401);
+
+    const response = await request(context.httpServer)
+      .get('/v0.1/auth/sessions')
+      .set(authHeader(secondSession.accessToken))
+      .expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0]).toMatchObject({
+      id: expect.not.stringMatching(firstPayload.sessionId),
+      isCurrent: true,
+    });
+  });
+
+  it('does not revoke another user session', async () => {
+    const owner = await registerAndLogin(context.httpServer, 'owner');
+    const stranger = await registerAndLogin(context.httpServer, 'stranger');
+    const ownerPayload = jwtService.decode(owner.accessToken);
+
+    await request(context.httpServer)
+      .delete(`/v0.1/auth/sessions/${ownerPayload.sessionId}`)
+      .set(authHeader(stranger.accessToken))
+      .expect(404);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/profile')
+      .set(authHeader(owner.accessToken))
+      .expect(200);
   });
 
   it('requires access tokens for protected API endpoints', async () => {

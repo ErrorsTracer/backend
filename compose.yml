@@ -1,0 +1,57 @@
+services:
+  # backend:
+  #   image: tracer-backend
+  #   container_name: backend
+  #   build:
+  #     context: ${DIRECTORY_BACKEND}
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "4973:4973"
+  #   environment:
+  #     NODE_ENV: production
+  #     HOST: 0.0.0.0
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - database
+  #   networks:
+  #     - tracer-network
+
+  # frontend:
+  #   image: tracer-dashboard
+  #   container_name: frontend
+  #   build:
+  #     context: ${DIRECTORY_FRONTEND}
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     HOST: 0.0.0.0
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
+
+  #   networks:
+  #     - tracer-network
+
+  database:
+    image: postgres
+    container_name: database
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5431:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./db:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    networks:
+      - tracer-network
+
+volumes:
+  postgres_data:
+
+networks:
+  tracer-network:
+    driver: bridge

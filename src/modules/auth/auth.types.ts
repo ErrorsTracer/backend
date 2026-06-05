@@ -6,10 +6,21 @@ export type AuthSessionRecord = {
   refreshTokenHash: string;
   revokedAt: Date | string | null;
   expiresAt: Date | string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
   user?: {
     id: string;
     email: string;
   };
+};
+
+export type AuthSessionSummary = {
+  id: string;
+  userId: string;
+  revokedAt: Date | string | null;
+  expiresAt: Date | string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 };
 
 export type AccessTokenPayload = {

@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { col, fn, Op, Transaction, where as sequelizeWhere } from 'sequelize';
+import {
+  col,
+  fn,
+  literal,
+  Op,
+  Transaction,
+  where as sequelizeWhere,
+} from 'sequelize';
 import { ApplicationMembership } from '../../database/models/application-membership.model';
 import { Frameworks } from '../../database/models/frameworks.model';
 import { Applications } from '../../database/models/applications.model';
@@ -92,9 +99,20 @@ type GetRecentErrorsByApplicationIdData = {
   limit: number;
 };
 
+type GetTopAffectedRoutesByApplicationIdData = {
+  applicationId: string;
+  limit: number;
+};
+
 type RecentErrorGroup = {
   errorName: string;
   repeated: number | string;
+  lastSeenAt: Date | string;
+};
+
+type TopAffectedRouteRow = {
+  route: string;
+  errors: number | string;
   lastSeenAt: Date | string;
 };
 
@@ -536,25 +554,87 @@ export class ApplicationsRepository {
   }
 
   async getWeeklyErrorReportByApplicationId(applicationId: string) {
+    return await this.getWeeklyErrorReport({
+      applicationId,
+    });
+  }
+
+  async getTopAffectedRoutesByApplicationId({
+    applicationId,
+    limit,
+  }: GetTopAffectedRoutesByApplicationIdData) {
+    const routeSql = this.getAffectedRouteExpression();
+    const routeExpression = literal(routeSql);
+    const rows = (await this.errorsRepository.findAll({
+      attributes: [
+        [routeExpression, 'route'],
+        [fn('COUNT', col('Errors.id')), 'errors'],
+        [fn('MAX', col('Errors.createdAt')), 'lastSeenAt'],
+      ],
+      where: { applicationId },
+      group: [routeExpression as any],
+      having: literal(`${routeSql} IS NOT NULL`),
+      order: [
+        [fn('COUNT', col('Errors.id')), 'DESC'],
+        [fn('MAX', col('Errors.createdAt')), 'DESC'],
+        [routeExpression, 'ASC'],
+      ],
+      limit,
+      raw: true,
+    })) as unknown as TopAffectedRouteRow[];
+
+    return rows.map((row) => ({
+      route: row.route,
+      errors: Number(row.errors),
+      lastSeenAt: row.lastSeenAt,
+    }));
+  }
+
+  async getWeeklyErrorReportByOwnerId(ownerId: string) {
+    return await this.getWeeklyErrorReport({
+      ownerId,
+    });
+  }
+
+  private async getWeeklyErrorReport({
+    applicationId,
+    ownerId,
+  }: {
+    applicationId?: string;
+    ownerId?: string;
+  }) {
     const thisWeekStart = this.getUtcWeekStart(new Date());
     const lastWeekStart = new Date(thisWeekStart);
     lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
     const nextWeekStart = new Date(thisWeekStart);
     nextWeekStart.setUTCDate(nextWeekStart.getUTCDate() + 7);
-    const utcCreatedDate = fn('date', fn('timezone', 'UTC', col('createdAt')));
+    const utcCreatedDate = fn(
+      'date',
+      fn('timezone', 'UTC', col('Errors.createdAt')),
+    );
 
     const counts = (await this.errorsRepository.findAll({
       attributes: [
         [utcCreatedDate, 'date'],
-        [fn('COUNT', col('id')), 'errors'],
+        [fn('COUNT', col('Errors.id')), 'errors'],
       ],
       where: {
-        applicationId,
+        ...(applicationId ? { applicationId } : {}),
         createdAt: {
           [Op.gte]: lastWeekStart,
           [Op.lt]: nextWeekStart,
         },
       },
+      include: ownerId
+        ? [
+            {
+              model: Applications,
+              attributes: [],
+              where: { ownerId },
+              required: true,
+            },
+          ]
+        : undefined,
       group: [utcCreatedDate],
       raw: true,
     })) as unknown as GroupedWeeklyErrorCount[];
@@ -610,6 +690,10 @@ export class ApplicationsRepository {
 
   private getErrorNameExpression() {
     return fn('COALESCE', col('name'), col('error'));
+  }
+
+  private getAffectedRouteExpression() {
+    return `COALESCE(NULLIF(TRIM("Errors"."transaction"), ''), NULLIF(TRIM("Errors"."url"), ''), NULLIF(TRIM("Errors"."request"->>'url'), ''))`;
   }
 
   private async getApplicationOverviewCounts(applicationId: string) {

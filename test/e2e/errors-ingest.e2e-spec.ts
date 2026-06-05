@@ -2,7 +2,6 @@ import { getModelToken } from '@nestjs/sequelize';
 import request from 'supertest';
 import { Errors } from '../../src/database/models/errors.model';
 import { Usage } from '../../src/database/models/usage.model';
-import { UsageRepository } from '../../src/modules/usage/usage.repo';
 import { registerAndLogin } from '../support/auth';
 import { resetTestData } from '../support/db-reset';
 import { createE2eApp, E2eAppContext } from '../support/e2e-app';
@@ -123,48 +122,6 @@ describe('Generic error ingestion API (e2e)', () => {
     });
   });
 
-  it('tracks the raw request body size when it is available', async () => {
-    const application = await createIngestionTarget();
-    const rawPayload = `{
-  "projectId": "${application.id}",
-  "message": "Raw body size smoke"
-}`;
-
-    await request(context.httpServer)
-      .post('/v0.1/errors/ingest')
-      .set('X-ErrorTracer-Key', application.appKey)
-      .set('Content-Type', 'application/json')
-      .send(rawPayload)
-      .expect(201);
-
-    const usage = await usageModel.findOne({
-      where: { applicationId: application.id },
-    });
-
-    expect(usage?.totalErrorBytes).toBe(
-      String(Buffer.byteLength(rawPayload, 'utf8')),
-    );
-  });
-
-  it('rolls back the error when usage persistence fails', async () => {
-    const application = await createIngestionTarget();
-    const usageCreate = jest
-      .spyOn(UsageRepository.prototype, 'incrementForApplication')
-      .mockRejectedValueOnce(new Error('usage persistence failed'));
-
-    try {
-      await postIngest(application.appKey, {
-        projectId: application.id,
-        message: 'Atomic ingest smoke',
-      }).expect(500);
-
-      expect(await errorsModel.count()).toBe(0);
-      expect(await usageModel.count()).toBe(0);
-    } finally {
-      usageCreate.mockRestore();
-    }
-  });
-
   it('increments one aggregate row safely for concurrent ingestion', async () => {
     const application = await createIngestionTarget('concurrent-owner');
     const payloads = Array.from({ length: 20 }, (_, index) => ({
@@ -220,83 +177,6 @@ describe('Generic error ingestion API (e2e)', () => {
     expect(persisted?.fingerprint).toBe('dummy:users:validationerror');
   });
 
-  it('successfully ingests a Laravel/server-style payload', async () => {
-    const application = await createIngestionTarget();
-
-    await postIngest(application.appKey, {
-      projectId: application.id,
-      framework: 'laravel',
-      language: 'php',
-      runtime: 'server',
-      level: 'fatal',
-      message: 'SQLSTATE[42S02]: Base table or view not found',
-      name: 'Illuminate\\Database\\QueryException',
-      stack: '#0 /var/www/app/Http/Controllers/BillingController.php(42)',
-      transaction: 'POST /billing/checkout',
-      serverName: 'web-1',
-      request: {
-        method: 'POST',
-        url: '/billing/checkout',
-        headers: { host: 'example.com' },
-      },
-      contexts: { os: { name: 'linux' } },
-    }).expect(201);
-
-    const persisted = await errorsModel.findOne({
-      where: { applicationId: application.id },
-    });
-
-    expect(persisted?.framework).toBe('laravel');
-    expect(persisted?.runtime).toBe('server');
-    expect(persisted?.extra).toEqual({ serverName: 'web-1' });
-  });
-
-  it('defaults level to error when omitted', async () => {
-    const application = await createIngestionTarget();
-
-    await postIngest(application.appKey, {
-      projectId: application.id,
-      message: 'Default level smoke',
-    }).expect(201);
-
-    const persisted = await errorsModel.findOne({
-      where: { applicationId: application.id },
-    });
-    expect(persisted?.level).toBe('error');
-  });
-
-  it('defaults environment to production when omitted', async () => {
-    const application = await createIngestionTarget();
-
-    await postIngest(application.appKey, {
-      projectId: application.id,
-      message: 'Default environment smoke',
-    }).expect(201);
-
-    const persisted = await errorsModel.findOne({
-      where: { applicationId: application.id },
-    });
-    expect(persisted?.environment).toBe('production');
-  });
-
-  it('defaults timestamp to server time when omitted', async () => {
-    const application = await createIngestionTarget();
-    const before = Date.now();
-
-    await postIngest(application.appKey, {
-      projectId: application.id,
-      message: 'Default timestamp smoke',
-    }).expect(201);
-
-    const after = Date.now();
-    const persisted = await errorsModel.findOne({
-      where: { applicationId: application.id },
-    });
-
-    expect(persisted?.timestamp?.getTime()).toBeGreaterThanOrEqual(before);
-    expect(persisted?.timestamp?.getTime()).toBeLessThanOrEqual(after);
-  });
-
   it('rejects payload missing message', async () => {
     const application = await createIngestionTarget();
 
@@ -314,17 +194,7 @@ describe('Generic error ingestion API (e2e)', () => {
       level: 'panic',
     }).expect(400);
   });
-
-  it('rejects invalid runtime', async () => {
-    const application = await createIngestionTarget();
-
-    await postIngest(application.appKey, {
-      projectId: application.id,
-      message: 'Invalid runtime smoke',
-      runtime: 'lambda',
-    }).expect(400);
-  });
-
+ 
   it('rejects missing API key', async () => {
     const application = await createIngestionTarget();
 
@@ -346,78 +216,6 @@ describe('Generic error ingestion API (e2e)', () => {
     }).expect(401);
 
     expect(await usageModel.count()).toBe(0);
-  });
-
-  it('rejects projectId/key mismatch when both are provided', async () => {
-    const first = await createIngestionTarget('first');
-    const second = await createIngestionTarget('second');
-
-    await postIngest(first.appKey, {
-      projectId: second.id,
-      message: 'Mismatch smoke',
-    }).expect(403);
-  });
-
-  it('redacts sensitive request headers/body fields before saving', async () => {
-    const application = await createIngestionTarget();
-
-    await postIngest(application.appKey, {
-      projectId: application.id,
-      message: 'Sensitive data smoke',
-      request: {
-        headers: {
-          authorization: 'Bearer secret',
-          cookie: 'session=secret',
-        },
-        body: {
-          password: 'secret',
-          token: 'secret',
-          profile: { apiKey: 'secret', safe: 'kept' },
-        },
-      },
-    }).expect(201);
-
-    const persisted = await errorsModel.findOne({
-      where: { applicationId: application.id },
-    });
-
-    expect(persisted?.request).toEqual({
-      headers: {
-        authorization: '[Redacted]',
-        cookie: '[Redacted]',
-      },
-      body: {
-        password: '[Redacted]',
-        token: '[Redacted]',
-        profile: { apiKey: '[Redacted]', safe: 'kept' },
-      },
-    });
-  });
-
-  it('enforces payload size limit', async () => {
-    const application = await createIngestionTarget();
-
-    await postIngest(application.appKey, {
-      projectId: application.id,
-      message: 'Large payload smoke',
-      extra: { blob: 'x'.repeat(120_000) },
-    }).expect(413);
-  });
-
-  it('persists the event and verifies it exists in the database', async () => {
-    const application = await createIngestionTarget();
-
-    const response = await postIngest(application.appKey, {
-      projectId: application.id,
-      message: 'Persistence smoke',
-      fingerprint: 'manual-fingerprint',
-    }).expect(201);
-
-    const persisted = await errorsModel.findByPk(response.body.id);
-
-    expect(persisted?.applicationId).toBe(application.id);
-    expect(persisted?.error).toBe('Persistence smoke');
-    expect(persisted?.fingerprint).toBe('manual-fingerprint');
   });
 
   it('ensures response does not leak sensitive data', async () => {

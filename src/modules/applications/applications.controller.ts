@@ -15,6 +15,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import {
   CreateAppDto,
   GetApplicationErrorsDto,
+  GetApplicationTopAffectedRoutesDto,
   InvitePeopleDto,
 } from './applications.dto';
 import { UnGuard } from '../auth/auth.decorator';
@@ -43,6 +44,11 @@ export class ApplicationsController {
   @Get('/errors/severity-distribution')
   async getErrorsSeverityDistribution(@Req() req: any) {
     return await this.appService.getErrorsSeverityDistribution(req.user);
+  }
+
+  @Get('/errors/report')
+  async getMyApplicationsErrorsReport(@Req() req: any) {
+    return await this.appService.getMyApplicationsErrorsReport(req.user);
   }
 
   @Get('/:id')
@@ -75,6 +81,19 @@ export class ApplicationsController {
   @Get('/:id/errors/report')
   async getAppErrorsReport(@Param() params: any, @Req() req: any) {
     return await this.appService.getApplicationErrorsReport(params, req.user);
+  }
+
+  @Get('/:id/errors/top-affected-routes')
+  async getTopAffectedRoutes(
+    @Param() params: any,
+    @Query() query: GetApplicationTopAffectedRoutesDto,
+    @Req() req: any,
+  ) {
+    return await this.appService.getApplicationTopAffectedRoutes(
+      params,
+      query,
+      req.user,
+    );
   }
 
   @Get('/:id/usage')

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Users } from '../../database/models/users.model';
 import { InjectModel } from '@nestjs/sequelize';
+import { Op } from 'sequelize';
 
 import { AuthSessions } from '../../database/models/auth-sessions.model';
 
@@ -58,12 +59,45 @@ export class AuthRepository {
     return session?.toJSON();
   }
 
+  async listActiveSessionsByUserId(userId: string) {
+    const sessions = await this.authSessionsRepository.findAll({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          [Op.gt]: new Date(),
+        },
+      },
+      attributes: {
+        exclude: ['refreshTokenHash'],
+      },
+      order: [['createdAt', 'DESC']],
+    });
+
+    return sessions.map((session) => session.toJSON());
+  }
+
   async revokeSession(sessionId: string) {
     const [affectedCount] = await this.authSessionsRepository.update(
       { revokedAt: new Date() },
       {
         where: {
           id: sessionId,
+          revokedAt: null,
+        },
+      },
+    );
+
+    return affectedCount > 0;
+  }
+
+  async revokeUserSession(userId: string, sessionId: string) {
+    const [affectedCount] = await this.authSessionsRepository.update(
+      { revokedAt: new Date() },
+      {
+        where: {
+          id: sessionId,
+          userId,
           revokedAt: null,
         },
       },

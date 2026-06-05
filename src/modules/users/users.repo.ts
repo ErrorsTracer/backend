@@ -76,6 +76,78 @@ export class UsersRepository {
     });
   }
 
+  async getMembershipInvitationsByUserId(userId: string) {
+    return await this.applicationMembershipsRepository.findAll({
+      where: {
+        userId,
+        status: ApplicationMembershipStatus.INVITED,
+      },
+      include: [
+        {
+          model: Applications,
+          as: 'application',
+          attributes: ['id', 'name'],
+          include: [
+            {
+              model: Users,
+              as: 'owner',
+              attributes: ['firstName', 'lastName', 'email'],
+            },
+          ],
+        },
+        {
+          model: Users,
+          as: 'invitedByUser',
+          attributes: ['firstName', 'lastName', 'email'],
+        },
+      ],
+      attributes: {
+        exclude: [
+          'applicationId',
+          'deletedAt',
+          'updatedAt',
+          'userId',
+          'invitedBy',
+        ],
+      },
+      order: [['createdAt', 'DESC']],
+    });
+  }
+
+  async acceptMembershipInvitationByIdAndUserId(
+    id: string | undefined,
+    userId: string,
+  ) {
+    const membership = await this.applicationMembershipsRepository.findOne({
+      where: {
+        id,
+        userId,
+        status: ApplicationMembershipStatus.INVITED,
+      },
+    });
+
+    if (!membership) {
+      return null;
+    }
+
+    membership.status = ApplicationMembershipStatus.ACTIVE;
+    membership.joinedAt = new Date();
+    await membership.save();
+
+    return await this.applicationMembershipsRepository.findByPk(membership.id, {
+      include: [
+        {
+          model: Applications,
+          as: 'application',
+          attributes: ['id', 'name', 'about', 'ownerId'],
+        },
+      ],
+      attributes: {
+        exclude: ['applicationId', 'deletedAt', 'updatedAt', 'userId'],
+      },
+    });
+  }
+
   async getDashboardStatsByUserId(userId: string) {
     const applications = await this.applicationsRepository
       .scope({ method: ['associatedWithUser', userId] })

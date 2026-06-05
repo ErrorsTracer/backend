@@ -97,6 +97,80 @@ describe('Users API (e2e)', () => {
       });
   });
 
+  it('returns and accepts membership invitations for the authenticated user', async () => {
+    const owner = await registerAndLogin(context.httpServer, 'invite-owner');
+    const member = await registerAndLogin(context.httpServer, 'invite-member');
+    const otherUser = await registerAndLogin(context.httpServer, 'invite-other');
+    const application = await createApplicationFixture(context, owner);
+
+    await inviteUserToApplication(context, owner, application.id, member.email);
+
+    await request(context.httpServer)
+      .get('/v0.1/users/membership-invitations')
+      .expect(401);
+
+    const invitationsResponse = await request(context.httpServer)
+      .get('/v0.1/users/membership-invitations')
+      .set(authHeader(member.accessToken))
+      .expect(200);
+
+    expect(invitationsResponse.body).toEqual([
+      expect.objectContaining({
+        id: expect.any(String),
+        role: 'member',
+        status: ApplicationMembershipStatus.INVITED,
+        joinedAt: null,
+        application: expect.objectContaining({
+          id: application.id,
+          name: application.name,
+          owner: expect.objectContaining({
+            email: owner.email,
+          }),
+        }),
+        invitedByUser: expect.objectContaining({
+          email: owner.email,
+        }),
+      }),
+    ]);
+
+    const invitationId = invitationsResponse.body[0].id;
+
+    await request(context.httpServer)
+      .patch(`/v0.1/users/membership-invitations/${invitationId}/accept`)
+      .set(authHeader(otherUser.accessToken))
+      .expect(404);
+
+    await request(context.httpServer)
+      .patch(`/v0.1/users/membership-invitations/${invitationId}/accept`)
+      .set(authHeader(member.accessToken))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          message: 'Membership invitation accepted successfully',
+          membership: expect.objectContaining({
+            id: invitationId,
+            status: ApplicationMembershipStatus.ACTIVE,
+            joinedAt: expect.any(String),
+            application: expect.objectContaining({
+              id: application.id,
+              name: application.name,
+            }),
+          }),
+        });
+      });
+
+    await request(context.httpServer)
+      .get('/v0.1/users/membership-invitations')
+      .set(authHeader(member.accessToken))
+      .expect(200)
+      .expect([]);
+
+    await request(context.httpServer)
+      .get(`/v0.1/applications/${application.id}`)
+      .set(authHeader(member.accessToken))
+      .expect(200);
+  });
+
   it('updates profile information and password for the authenticated user', async () => {
     const owner = await registerAndLogin(context.httpServer, 'settings-owner');
     const otherUser = await registerAndLogin(

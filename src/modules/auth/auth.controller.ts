@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
   HttpCode,
+  Param,
   Post,
   Req,
   Res,
@@ -12,7 +15,8 @@ import { CreateAccountDto, LoginDto } from './auth.dto';
 import type { Response } from 'express';
 import { AUTH_CONSTANTS } from '../../common/constants/app.constants';
 import { RefreshTokenGuard } from './refresh-token.guard';
-import type { RefreshTokenRequest } from './auth.types';
+import { AuthGuard } from './auth.guard';
+import type { AuthenticatedRequest, RefreshTokenRequest } from './auth.types';
 
 @Controller({ path: 'auth', version: '0.1' })
 export class AuthController {
@@ -45,6 +49,22 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   async refresh(@Req() req: RefreshTokenRequest) {
     return await this.authService.validateRefreshToken(req.session!);
+  }
+
+  @Get('sessions')
+  @UseGuards(AuthGuard)
+  async listSessions(@Req() req: AuthenticatedRequest) {
+    return await this.authService.listActiveSessions(req.session!);
+  }
+
+  @Delete('sessions/:sessionId')
+  @HttpCode(204)
+  @UseGuards(AuthGuard)
+  async revokeSession(
+    @Param('sessionId') sessionId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.authService.revokeUserSession(req.session!.userId, sessionId);
   }
 
   @Post('logout')

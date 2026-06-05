@@ -41,3 +41,9 @@ export class GetApplicationErrorsDto {
   @IsString()
   declare cursor?: string;
 }
+
+export class GetApplicationTopAffectedRoutesDto {
+  @IsOptional()
+  @Matches(/^\d+$/)
+  declare limit?: string;
+}

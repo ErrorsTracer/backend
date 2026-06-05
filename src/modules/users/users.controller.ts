@@ -41,6 +41,16 @@ export class UsersController {
     return await this.usersService.getUserUsage(req.user);
   }
 
+  @Get('/membership-invitations')
+  async getMembershipInvitations(@Req() req: any) {
+    return await this.usersService.getMembershipInvitations(req.user);
+  }
+
+  @Patch('/membership-invitations/:id/accept')
+  async acceptMembershipInvitation(@Param() params: any, @Req() req: any) {
+    return await this.usersService.acceptMembershipInvitation(params, req.user);
+  }
+
   @Get('/dashboard/stats')
   async getDashboardStats(@Req() req: any) {
     return await this.usersService.getDashboardStats(req.user);

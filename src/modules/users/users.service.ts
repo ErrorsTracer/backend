@@ -120,6 +120,34 @@ export class UsersService {
     return await this.usageRepository.getTotalByUser(userId);
   }
 
+  async getMembershipInvitations(user: { id?: string; sub?: string }) {
+    const userId = this.getUserId(user);
+
+    return await this.usersRepository.getMembershipInvitationsByUserId(userId);
+  }
+
+  async acceptMembershipInvitation(
+    params: { id?: string },
+    user: { id?: string; sub?: string },
+  ) {
+    const userId = this.getUserId(user);
+
+    const membership =
+      await this.usersRepository.acceptMembershipInvitationByIdAndUserId(
+        params.id,
+        userId,
+      );
+
+    if (!membership) {
+      throw new NotFoundException(ERROR_KEYS.MEMBERSHIP_INVITATION_NOT_FOUND);
+    }
+
+    return {
+      message: 'Membership invitation accepted successfully',
+      membership,
+    };
+  }
+
   async getDashboardStats(user: { id?: string; sub?: string }) {
     const userId = user.id ?? user.sub;
 

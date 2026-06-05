@@ -1,5 +1,46 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import {
+  clearInterval,
+  clearTimeout,
+  setInterval,
+  setTimeout,
+} from 'timers';
+import { URL, URLSearchParams } from 'url';
+import { TextDecoder, TextEncoder } from 'util';
+
+if (!globalThis.setTimeout) {
+  globalThis.setTimeout = setTimeout as typeof globalThis.setTimeout;
+}
+
+if (!globalThis.clearTimeout) {
+  globalThis.clearTimeout = clearTimeout as typeof globalThis.clearTimeout;
+}
+
+if (!globalThis.setInterval) {
+  globalThis.setInterval = setInterval as typeof globalThis.setInterval;
+}
+
+if (!globalThis.clearInterval) {
+  globalThis.clearInterval = clearInterval as typeof globalThis.clearInterval;
+}
+
+if (!globalThis.URL) {
+  globalThis.URL = URL as typeof globalThis.URL;
+}
+
+if (!globalThis.URLSearchParams) {
+  globalThis.URLSearchParams =
+    URLSearchParams as typeof globalThis.URLSearchParams;
+}
+
+if (!globalThis.TextEncoder) {
+  globalThis.TextEncoder = TextEncoder;
+}
+
+if (!globalThis.TextDecoder) {
+  globalThis.TextDecoder = TextDecoder as typeof globalThis.TextDecoder;
+}
 
 const envFile = join(__dirname, '.test-db-env.json');
 
