@@ -1,28 +1,23 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import {
-  clearInterval,
-  clearTimeout,
-  setInterval,
-  setTimeout,
-} from 'timers';
+import { clearInterval, clearTimeout, setInterval, setTimeout } from 'timers';
 import { URL, URLSearchParams } from 'url';
 import { TextDecoder, TextEncoder } from 'util';
 
 if (!globalThis.setTimeout) {
-  globalThis.setTimeout = setTimeout as typeof globalThis.setTimeout;
+  globalThis.setTimeout = setTimeout;
 }
 
 if (!globalThis.clearTimeout) {
-  globalThis.clearTimeout = clearTimeout as typeof globalThis.clearTimeout;
+  globalThis.clearTimeout = clearTimeout;
 }
 
 if (!globalThis.setInterval) {
-  globalThis.setInterval = setInterval as typeof globalThis.setInterval;
+  globalThis.setInterval = setInterval;
 }
 
 if (!globalThis.clearInterval) {
-  globalThis.clearInterval = clearInterval as typeof globalThis.clearInterval;
+  globalThis.clearInterval = clearInterval;
 }
 
 if (!globalThis.URL) {

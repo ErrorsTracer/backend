@@ -194,7 +194,7 @@ describe('Generic error ingestion API (e2e)', () => {
       level: 'panic',
     }).expect(400);
   });
- 
+
   it('rejects missing API key', async () => {
     const application = await createIngestionTarget();
 

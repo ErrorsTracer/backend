@@ -116,7 +116,7 @@ export class ApplicationsController {
   }
 
   @Put('/:id/credentials/production')
-    @ApplicationMembershipRequired(
+  @ApplicationMembershipRequired(
     ApplicationMembershipRole.OWNER,
     ERROR_KEYS.APP_STATUS_FORBIDDEN,
   )

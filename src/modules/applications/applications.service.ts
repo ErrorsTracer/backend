@@ -241,7 +241,7 @@ export class ApplicationsService {
       applicationId: params.id,
       isEnabled: !application.environment.isEnabled,
     });
- 
+
     if (!environment) {
       throw new NotFoundException(ERROR_KEYS.CREDENTIAL_NOT_FOUND);
     }

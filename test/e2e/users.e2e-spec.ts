@@ -100,7 +100,10 @@ describe('Users API (e2e)', () => {
   it('returns and accepts membership invitations for the authenticated user', async () => {
     const owner = await registerAndLogin(context.httpServer, 'invite-owner');
     const member = await registerAndLogin(context.httpServer, 'invite-member');
-    const otherUser = await registerAndLogin(context.httpServer, 'invite-other');
+    const otherUser = await registerAndLogin(
+      context.httpServer,
+      'invite-other',
+    );
     const application = await createApplicationFixture(context, owner);
 
     await inviteUserToApplication(context, owner, application.id, member.email);
