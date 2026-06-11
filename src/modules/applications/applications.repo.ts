@@ -71,9 +71,10 @@ type GetAppByIdForUserData = {
   userId: string;
 };
 
-type GetOwnerMembershipForAppData = {
+type GetMembershipForAppByRoleData = {
   applicationId: string;
   userId: string;
+  role: ApplicationMembershipRole;
 };
 
 type CreateNotificationData = {
@@ -207,6 +208,19 @@ export class ApplicationsRepository {
     });
   }
 
+  async getActiveMembershipForApp({
+    applicationId,
+    userId,
+  }: Omit<GetMembershipForAppByRoleData, 'role'>) {
+    return await this.appMembershipRepository.findOne({
+      where: {
+        applicationId,
+        userId,
+        status: ApplicationMembershipStatus.ACTIVE,
+      },
+    });
+  }
+
   async createNotification(
     data: CreateNotificationData,
     transaction?: Transaction,
@@ -264,17 +278,29 @@ export class ApplicationsRepository {
     return await environment.save();
   }
 
-  async getOwnerMembershipForApp({
+  async getMembershipForAppByRole({
     applicationId,
     userId,
-  }: GetOwnerMembershipForAppData) {
+    role,
+  }: GetMembershipForAppByRoleData) {
     return await this.appMembershipRepository.findOne({
       where: {
         applicationId,
         userId,
-        role: ApplicationMembershipRole.OWNER,
+        role,
         status: ApplicationMembershipStatus.ACTIVE,
       },
+    });
+  }
+
+  async getOwnerMembershipForApp({
+    applicationId,
+    userId,
+  }: Omit<GetMembershipForAppByRoleData, 'role'>) {
+    return await this.getMembershipForAppByRole({
+      applicationId,
+      userId,
+      role: ApplicationMembershipRole.OWNER,
     });
   }
 

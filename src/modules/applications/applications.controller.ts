@@ -19,6 +19,10 @@ import {
   InvitePeopleDto,
 } from './applications.dto';
 import { UnGuard } from '../auth/auth.decorator';
+import { ApplicationMembershipGuard } from './application-membership.guard';
+import { ApplicationMembershipRequired } from './application-membership.decorator';
+import { ApplicationMembershipRole } from '../../common/constants/app.constants';
+import { ERROR_KEYS } from '../../common/localization/error-keys';
 
 @Controller({ path: 'applications', version: '0.1' })
 @UseGuards(AuthGuard)
@@ -112,11 +116,21 @@ export class ApplicationsController {
   }
 
   @Put('/:id/credentials/production')
+    @ApplicationMembershipRequired(
+    ApplicationMembershipRole.OWNER,
+    ERROR_KEYS.APP_STATUS_FORBIDDEN,
+  )
+  @UseGuards(ApplicationMembershipGuard)
   async updateProductionMode(@Param() params: any, @Req() req: any) {
     return await this.appService.updateProductionMode(params, req.user);
   }
 
   @Put('/:id/credentials/rotate')
+  @ApplicationMembershipRequired(
+    ApplicationMembershipRole.OWNER,
+    ERROR_KEYS.APP_STATUS_FORBIDDEN,
+  )
+  @UseGuards(ApplicationMembershipGuard)
   async rotateAppKey(@Param() params: any, @Req() req: any) {
     return await this.appService.rotateAppKey(params, req.user);
   }
@@ -127,6 +141,11 @@ export class ApplicationsController {
   }
 
   @Post('/:id/invite')
+  @ApplicationMembershipRequired(
+    ApplicationMembershipRole.OWNER,
+    ERROR_KEYS.APP_INVITE_FORBIDDEN,
+  )
+  @UseGuards(ApplicationMembershipGuard)
   async invitePeople(
     @Body() data: InvitePeopleDto,
     @Param() params: any,
@@ -136,16 +155,31 @@ export class ApplicationsController {
   }
 
   @Put('/:id/activate')
+  @ApplicationMembershipRequired(
+    ApplicationMembershipRole.OWNER,
+    ERROR_KEYS.APP_STATUS_FORBIDDEN,
+  )
+  @UseGuards(ApplicationMembershipGuard)
   async activateApp(@Param() params: any, @Req() req: any) {
     return await this.appService.activateApp(params, req.user);
   }
 
   @Put('/:id/suspend')
+  @ApplicationMembershipRequired(
+    ApplicationMembershipRole.OWNER,
+    ERROR_KEYS.APP_STATUS_FORBIDDEN,
+  )
+  @UseGuards(ApplicationMembershipGuard)
   async suspendApp(@Param() params: any, @Req() req: any) {
     return await this.appService.suspendApp(params, req.user);
   }
 
   @Delete('/:id')
+  @ApplicationMembershipRequired(
+    ApplicationMembershipRole.OWNER,
+    ERROR_KEYS.APP_DELETE_FORBIDDEN,
+  )
+  @UseGuards(ApplicationMembershipGuard)
   async deleteApp(@Param() params: any, @Req() req: any) {
     return await this.appService.deleteApp(params, req.user);
   }

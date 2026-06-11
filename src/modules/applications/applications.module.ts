@@ -14,6 +14,7 @@ import { TransactionManager } from '../../helpers/transaction.helper';
 import { ApplicationsRepository } from './applications.repo';
 import { AuthModule } from '../auth/auth.module';
 import { UsageModule } from '../usage/usage.module';
+import { ApplicationMembershipGuard } from './application-membership.guard';
 
 @Module({
   imports: [
@@ -30,6 +31,11 @@ import { UsageModule } from '../usage/usage.module';
     UsageModule,
   ],
   controllers: [ApplicationsController],
-  providers: [ApplicationsService, TransactionManager, ApplicationsRepository],
+  providers: [
+    ApplicationsService,
+    TransactionManager,
+    ApplicationsRepository,
+    ApplicationMembershipGuard,
+  ],
 })
 export class ApplicationsModule {}

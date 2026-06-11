@@ -76,4 +76,10 @@ async function ensureIndexes(queryInterface) {
       name: 'usage_user_application_idx',
     });
   }
+
+  if (!names.has('usage_created_at_idx')) {
+    await queryInterface.addIndex('usage', ['createdAt'], {
+      name: 'usage_created_at_idx',
+    });
+  }
 }
